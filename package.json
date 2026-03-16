@@ -1,0 +1,39 @@
+{
+  "name": "distributedstockorders",
+  "version": "1.0.0",
+  "description": "Sistema de Gestão de Pedidos com Estoque Distribuído",
+  "main": "index.js",
+  "scripts": {
+    "dev": "ts-node-dev --respawn --transpile-only src/server.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AlexHenriques417/DistributedStockOrders.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/AlexHenriques417/DistributedStockOrders/issues"
+  },
+  "homepage": "https://github.com/AlexHenriques417/DistributedStockOrders#readme",
+  "dependencies": {
+    "amqplib": "^0.10.9",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "ioredis": "^5.10.0",
+    "pg": "^8.20.0",
+    "pg-hstore": "^2.3.4",
+    "reflect-metadata": "^0.2.2",
+    "sequelize": "^6.37.8",
+    "sequelize-typescript": "^2.1.6"
+  },
+  "devDependencies": {
+    "@types/amqplib": "^0.10.8",
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.5.0",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.9.3"
+  }
+}
