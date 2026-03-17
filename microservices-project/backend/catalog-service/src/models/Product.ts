@@ -19,3 +19,5 @@ export class Product extends Model {
   @Column({ type: DataType.INTEGER, defaultValue: 0 })
   stock_quantity!: number;
 }
+
+export default Product;

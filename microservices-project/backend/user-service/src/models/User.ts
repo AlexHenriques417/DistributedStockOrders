@@ -22,3 +22,5 @@ export class User extends Model {
   @Column(DataType.ENUM('client', 'admin'))
   role!: string; // Adicionado o "!"
 }
+
+export default User;

@@ -4,7 +4,9 @@
   "description": "Sistema de Gestão de Pedidos com Estoque Distribuído",
   "main": "index.js",
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only src/server.ts"
+    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "build": "tsc", 
+    "start": "node dist/server.js"
   },
   "repository": {
     "type": "git",

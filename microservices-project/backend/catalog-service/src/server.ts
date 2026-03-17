@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express, { Request, Response } from 'express';
 import sequelize from './config/database'; // Importa a conexão que criamos antes
 import catalogRoutes from './routes/catalog.routes'; // Importa as rotas

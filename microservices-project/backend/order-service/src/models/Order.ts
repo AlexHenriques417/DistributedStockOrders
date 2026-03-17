@@ -27,3 +27,5 @@ export class Order extends Model {
   @Column(DataType.ENUM('PENDING', 'PAID', 'CANCELED'))
   status!: string;
 }
+
+export default Order;

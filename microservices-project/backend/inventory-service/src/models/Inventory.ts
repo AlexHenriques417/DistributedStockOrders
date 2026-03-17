@@ -19,3 +19,5 @@ export class Inventory extends Model {
   @Column(DataType.STRING)
   location?: string; // Ex: Corredor A, Prateleira 2
 }
+
+export default Inventory;
