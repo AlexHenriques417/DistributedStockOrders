@@ -4,7 +4,7 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
-    "build": "tsc",
+    "build": "tsc && cp -r src/docs dist/docs",
     "start": "node dist/server.js"
   },
   "dependencies": {
@@ -16,13 +16,15 @@
     "pg-hstore": "^2.3.4",
     "reflect-metadata": "^0.1.13",
     "sequelize": "^6.33.0",
-    "sequelize-typescript": "^2.1.5"
+    "sequelize-typescript": "^2.1.5",
+    "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
     "@types/amqplib": "^0.10.1",
     "@types/express": "^4.17.17",
     "@types/ioredis": "^4.28.10",
     "@types/node": "^20.8.2",
+    "@types/swagger-ui-express": "^4.1.8",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.2.2"
   }

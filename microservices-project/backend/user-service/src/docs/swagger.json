@@ -1,0 +1,47 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "User Service API",
+    "version": "1.0.0",
+    "description": "Gerenciamento de usuários e perfis"
+  },
+  "paths": {
+    "/user": {
+      "get": {
+        "summary": "Lista todos os usuários cadastrados",
+        "responses": { "200": { "description": "Sucesso" } }
+      },
+      "post": {
+        "summary": "Cadastra um novo usuário",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "email": { "type": "string" },
+                  "password": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Usuário criado" } }
+      }
+    },
+    "/user/{id}": {
+      "get": {
+        "summary": "Busca perfil de um usuário específico",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Sucesso" } }
+      },
+      "delete": {
+        "summary": "Remove uma conta de usuário",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "204": { "description": "Usuário removido" } }
+      }
+    }
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Order Service API",
+    "version": "1.0.0",
+    "description": "Gerenciamento de pedidos e vendas"
+  },
+  "paths": {
+    "/order": {
+      "get": {
+        "summary": "Lista todos os pedidos realizados",
+        "responses": { "200": { "description": "Sucesso" } }
+      },
+      "post": {
+        "summary": "Cria um novo pedido",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "userId": { "type": "string" },
+                  "productId": { "type": "string" },
+                  "quantity": { "type": "integer" },
+                  "totalPrice": { "type": "number" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Pedido criado" } }
+      }
+    },
+    "/order/{id}": {
+      "get": {
+        "summary": "Busca detalhes de um pedido específico",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Sucesso" } }
+      },
+      "patch": {
+        "summary": "Atualiza o status do pedido (ex: Pago, Cancelado)",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": { "type": "string", "example": "PAID" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Status atualizado" } }
+      }
+    }
+  }
+}

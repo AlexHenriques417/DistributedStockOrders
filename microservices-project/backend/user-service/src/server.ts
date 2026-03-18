@@ -1,26 +1,38 @@
 import 'dotenv/config';
-import 'reflect-metadata';
-import express from 'express';
-import sequelize from './config/database';
-import userRoutes from './routes/user.routes';
+import express, { Request, Response } from 'express';
+import path from 'path';
+import swaggerUi from 'swagger-ui-express';
+import sequelize from './config/database'; 
+
+const swaggerDocument = require(path.resolve(__dirname, './docs/swagger.json'));
 
 const app = express();
+const PORT = process.env.PORT || 3005; // Porta padrão do User Service é 3005
+
 app.use(express.json());
 
-app.use('/users', userRoutes);
+// Rota do Swagger
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
-async function start() {
+// Health Check
+app.get('/health', (req: Request, res: Response) => {
+  res.json({ status: 'OK', service: 'User Service' });
+});
+
+async function bootstrap() {
   try {
     await sequelize.authenticate();
+    console.log('✅ User Service: Conexão com DB OK.');
     await sequelize.sync({ alter: true });
-    
-    app.listen(3005, () => {
-      console.log('👤 User Service rodando na porta 3005');
+
+    app.listen(Number(PORT), '0.0.0.0', () => {
+      console.log(`🚀 User Service rodando em: http://localhost:${PORT}`);
+      console.log(`📂 Documentação: http://localhost:${PORT}/api-docs`);
     });
-  } catch (err) {
-    console.error('❌ Erro no User Service:', err);
+  } catch (error) {
+    console.error('❌ Erro no User Service:', error);
+    process.exit(1);
   }
 }
 
-start();
-/*Server princiapl*/
+bootstrap();

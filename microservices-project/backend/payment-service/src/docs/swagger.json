@@ -1,0 +1,42 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Payment Service API",
+    "version": "1.0.0",
+    "description": "Processamento de transações e pagamentos"
+  },
+  "paths": {
+    "/payment/process": {
+      "post": {
+        "summary": "Processa um novo pagamento",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "orderId": { "type": "string" },
+                  "amount": { "type": "number" },
+                  "paymentMethod": { "type": "string", "example": "CREDIT_CARD" },
+                  "cardNumber": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Pagamento processado com sucesso" },
+          "402": { "description": "Pagamento recusado" }
+        }
+      }
+    },
+    "/payment/status/{orderId}": {
+      "get": {
+        "summary": "Consulta o status de um pagamento",
+        "parameters": [{ "name": "orderId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Sucesso" } }
+      }
+    }
+  }
+}

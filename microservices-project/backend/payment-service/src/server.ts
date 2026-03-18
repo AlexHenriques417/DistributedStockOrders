@@ -1,30 +1,38 @@
 import 'dotenv/config';
-import 'reflect-metadata';
-import express from 'express';
-import sequelize from './config/database';
-import { PaymentConsumer } from './consumers/PaymentConsumer';
+import express, { Request, Response } from 'express';
+import path from 'path';
+import swaggerUi from 'swagger-ui-express';
+import sequelize from './config/database'; 
+
+const swaggerDocument = require(path.resolve(__dirname, './docs/swagger.json'));
 
 const app = express();
+const PORT = process.env.PORT || 3004; // Porta padrão do Payment Service é 3004
+
 app.use(express.json());
 
-const consumer = new PaymentConsumer();
+// Rota do Swagger
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
-async function start() {
+// Health Check
+app.get('/health', (req: Request, res: Response) => {
+  res.json({ status: 'OK', service: 'Payment Service' });
+});
+
+async function bootstrap() {
   try {
     await sequelize.authenticate();
+    console.log('✅ Payment Service: Conexão com DB OK.');
     await sequelize.sync({ alter: true });
-    console.log('✅ Banco do Payment conectado.');
 
-    // Inicia o "escutador" de mensagens
-    await consumer.listen();
-
-    // Porta 3004 (seguindo a sequência)
-    app.listen(3004, () => {
-      console.log('💰 Payment Service rodando na porta 3004');
+    app.listen(Number(PORT), '0.0.0.0', () => {
+      console.log(`🚀 Payment Service rodando em: http://localhost:${PORT}`);
+      console.log(`📂 Documentação: http://localhost:${PORT}/api-docs`);
     });
-  } catch (err) {
-    console.error('❌ Erro no Payment Service:', err);
+  } catch (error) {
+    console.error('❌ Erro no Payment Service:', error);
+    process.exit(1);
   }
 }
 
-start();
+bootstrap();
