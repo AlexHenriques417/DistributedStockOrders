@@ -1,22 +1,21 @@
 services:
-  # --- BANCO DE DADOS ÚNICO (Com múltiplos DBs) ---
+  # --- BANCO DE DADOS ÚNICO ---
   postgres:
     image: postgres:15-alpine
     container_name: shared-postgres
     environment:
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: admin
+    volumes:
+      # Este arquivo será lido AUTOMATICAMENTE na primeira vez que o banco subir
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
     ports:
       - "5432:5432"
-    command: >
-      sh -c "docker-entrypoint.sh postgres & 
-      sleep 5;
-      psql -U admin -c 'CREATE DATABASE catalog_db;';
-      psql -U admin -c 'CREATE DATABASE inventory_db;';
-      psql -U admin -c 'CREATE DATABASE order_db;';
-      psql -U admin -c 'CREATE DATABASE user_db;';
-      psql -U admin -c 'CREATE DATABASE payment_db;';
-      wait"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   rabbitmq:
     image: rabbitmq:3-management
@@ -25,6 +24,12 @@ services:
       - "5672:5672"
       - "15672:15672"
 
+  redis:
+    image: redis:alpine
+    container_name: shared-redis
+    ports:
+      - "6379:6379"
+
   # --- MICROSSERVIÇOS ---
   catalog-service:
     build: ./backend/catalog-service
@@ -32,14 +37,17 @@ services:
     ports:
       - "3001:3001"
     depends_on:
-      - postgres
-      - rabbitmq
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
     environment:
       - PORT=3001
       - DB_HOST=postgres
       - DB_NAME=catalog_db
       - DB_USER=admin
       - DB_PASSWORD=admin
+      - REDIS_URL=redis://redis:6379
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
 
   inventory-service:
@@ -48,15 +56,14 @@ services:
     ports:
       - "3002:3002"
     depends_on:
-      - postgres
-      - rabbitmq
+      postgres:
+        condition: service_healthy
     environment:
       - PORT=3002
       - DB_HOST=postgres
       - DB_NAME=inventory_db
       - DB_USER=admin
       - DB_PASSWORD=admin
-      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
 
   order-service:
     build: ./backend/order-service
@@ -64,15 +71,14 @@ services:
     ports:
       - "3003:3003"
     depends_on:
-      - postgres
-      - rabbitmq
+      postgres:
+        condition: service_healthy
     environment:
       - PORT=3003
       - DB_HOST=postgres
       - DB_NAME=order_db
       - DB_USER=admin
       - DB_PASSWORD=admin
-      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
 
   payment-service:
     build: ./backend/payment-service
@@ -80,15 +86,14 @@ services:
     ports:
       - "3004:3004"
     depends_on:
-      - postgres
-      - rabbitmq
+      postgres:
+        condition: service_healthy
     environment:
       - PORT=3004
       - DB_HOST=postgres
       - DB_NAME=payment_db
       - DB_USER=admin
       - DB_PASSWORD=admin
-      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
 
   user-service:
     build: ./backend/user-service
@@ -96,7 +101,8 @@ services:
     ports:
       - "3005:3005"
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     environment:
       - PORT=3005
       - DB_HOST=postgres
