@@ -3,8 +3,8 @@ import express, { Request, Response } from 'express';
 import path from 'path';
 import swaggerUi from 'swagger-ui-express';
 import sequelize from './config/database'; 
-// Supondo que você já tenha as rotas criadas, se não tiver, comente a linha abaixo
-// import inventoryRoutes from './routes/inventory.routes'; 
+// Supondo que você já tenha as rotas criadas, se não tiver, comente a linha abaixo 
+import inventoryRoutes from './routes/inventory.routes';
 
 const swaggerDocument = require(path.resolve(__dirname, './docs/swagger.json'));
 
@@ -21,7 +21,7 @@ app.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'OK', service: 'Inventory Service' });
 });
 
-// app.use('/inventory', inventoryRoutes);
+app.use('/inventory', inventoryRoutes);
 
 async function bootstrap() {
   try {
@@ -39,4 +39,8 @@ async function bootstrap() {
   }
 }
 
-bootstrap();
+if (process.env.NODE_ENV !== 'test') {
+  bootstrap();
+}
+
+export default app;
