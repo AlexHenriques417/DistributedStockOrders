@@ -18,6 +18,7 @@ app.use(express.json());
 
 // 4. Rota do Swagger (Sempre coloque ANTES das outras rotas)
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument)); // Alias para /docs
 
 // 5. Rota de Health Check (Raiz para facilitar o teste inicial)
 app.get('/health', (req: Request, res: Response) => {
@@ -51,4 +52,8 @@ async function bootstrap() {
   }
 }
 
-bootstrap();
+if (process.env.NODE_ENV !== 'test') {
+  bootstrap();
+}
+
+export default app;
