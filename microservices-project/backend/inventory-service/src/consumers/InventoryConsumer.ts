@@ -8,24 +8,27 @@ export class InventoryConsumer {
     const exchange = 'catalog_events';
 
     await channel.assertExchange(exchange, 'topic', { durable: true });
-    const q = await channel.assertQueue('inventory_queue', { exclusive: false });
-    
+    const q = await channel.assertQueue('inventory_queue', { durable: true });
     await channel.bindQueue(q.queue, exchange, 'product.created');
 
     console.log('📥 Inventory Service aguardando eventos do Catálogo...');
 
     channel.consume(q.queue, async (msg) => {
       if (msg) {
-        const product = JSON.parse(msg.content.toString());
-        
-        // Cria registro de estoque inicial
-        await Inventory.create({
-          productId: product.id,
-          quantity: product.stock_quantity || 0
-        });
+        try {
+          const product = JSON.parse(msg.content.toString());
 
-        console.log(`📦 Estoque inicial criado para o produto: ${product.name}`);
-        channel.ack(msg);
+          await Inventory.create({
+            productId: product.id,
+            quantity: product.stock_quantity || 0
+          });
+
+          console.log(`📦 Estoque inicial criado para o produto: ${product.name}`);
+          channel.ack(msg);
+        } catch (err) {
+          console.error('❌ Erro ao processar evento product.created:', err);
+          channel.nack(msg, false, false);
+        }
       }
     });
   }

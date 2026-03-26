@@ -2,19 +2,21 @@ import 'dotenv/config';
 import express, { Request, Response } from 'express';
 import path from 'path';
 import swaggerUi from 'swagger-ui-express';
-import sequelize from './config/database'; 
+import sequelize from './config/database';
+import paymentRoutes from './routes/payment.routes';
+import { PaymentConsumer } from './consumers/PaymentConsumer';
 
 const swaggerDocument = require(path.resolve(__dirname, './docs/swagger.json'));
 
 const app = express();
-const PORT = process.env.PORT || 3004; // Porta padrão do Payment Service é 3004
+const PORT = process.env.PORT || 3004;
 
 app.use(express.json());
 
-// Rota do Swagger
+app.use('/payment', paymentRoutes);
+
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
-// Health Check
 app.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'OK', service: 'Payment Service' });
 });
@@ -24,6 +26,13 @@ async function bootstrap() {
     await sequelize.authenticate();
     console.log('✅ Payment Service: Conexão com DB OK.');
     await sequelize.sync({ alter: true });
+
+    try {
+      const consumer = new PaymentConsumer();
+      await consumer.listen();
+    } catch (err) {
+      console.warn('⚠️ RabbitMQ indisponível, consumer não iniciado:', err);
+    }
 
     app.listen(Number(PORT), '0.0.0.0', () => {
       console.log(`🚀 Payment Service rodando em: http://localhost:${PORT}`);
@@ -35,4 +44,8 @@ async function bootstrap() {
   }
 }
 
-bootstrap();
+if (process.env.NODE_ENV !== 'test') {
+  bootstrap();
+}
+
+export default app;

@@ -2,17 +2,20 @@ import 'dotenv/config';
 import express, { Request, Response } from 'express';
 import path from 'path';
 import swaggerUi from 'swagger-ui-express';
-import sequelize from './config/database'; 
+import sequelize from './config/database';
+import orderRoutes from './routes/order.routes';
 
-// Importação segura do JSON
 const swaggerDocument = require(path.resolve(__dirname, './docs/swagger.json'));
 
 const app = express();
-const PORT = process.env.PORT || 3003; // Porta padrão do Order Service é 3003
+const PORT = process.env.PORT || 3003;
 
 app.use(express.json());
 
-// Rota do Swagger
+// --- ROTAS ---
+app.use('/order', orderRoutes);
+
+// Swagger
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // Health Check

@@ -5,6 +5,12 @@
     "version": "1.0.0",
     "description": "Gerenciamento de pedidos e vendas"
   },
+  "servers": [
+    {
+      "url": "http://localhost:3003",
+      "description": "Servidor local"
+    }
+  ],
   "paths": {
     "/order": {
       "get": {
@@ -19,41 +25,53 @@
             "application/json": {
               "schema": {
                 "type": "object",
+                "required": ["userId", "productId", "quantity", "price"],
                 "properties": {
-                  "userId": { "type": "string" },
-                  "productId": { "type": "string" },
-                  "quantity": { "type": "integer" },
-                  "totalPrice": { "type": "number" }
+                  "userId":    { "type": "string", "example": "uuid-do-usuario" },
+                  "productId": { "type": "string", "example": "uuid-do-produto" },
+                  "quantity":  { "type": "integer", "example": 2 },
+                  "price":     { "type": "number", "example": 49.90 }
                 }
               }
             }
           }
         },
-        "responses": { "201": { "description": "Pedido criado" } }
+        "responses": {
+          "201": { "description": "Pedido criado" },
+          "400": { "description": "Dados inválidos" }
+        }
       }
     },
     "/order/{id}": {
       "get": {
         "summary": "Busca detalhes de um pedido específico",
         "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "responses": { "200": { "description": "Sucesso" } }
+        "responses": {
+          "200": { "description": "Sucesso" },
+          "404": { "description": "Pedido não encontrado" }
+        }
       },
       "patch": {
-        "summary": "Atualiza o status do pedido (ex: Pago, Cancelado)",
+        "summary": "Atualiza o status do pedido",
         "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
+                "required": ["status"],
                 "properties": {
-                  "status": { "type": "string", "example": "PAID" }
+                  "status": { "type": "string", "example": "PAID", "enum": ["PENDING", "PAID", "CANCELED"] }
                 }
               }
             }
           }
         },
-        "responses": { "200": { "description": "Status atualizado" } }
+        "responses": {
+          "200": { "description": "Status atualizado" },
+          "404": { "description": "Pedido não encontrado" }
+        }
       }
     }
   }

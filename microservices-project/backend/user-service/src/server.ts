@@ -2,19 +2,19 @@ import 'dotenv/config';
 import express, { Request, Response } from 'express';
 import path from 'path';
 import swaggerUi from 'swagger-ui-express';
-import sequelize from './config/database'; 
+import sequelize from './config/database';
+import userRoutes from './routes/user.routes';
 
 const swaggerDocument = require(path.resolve(__dirname, './docs/swagger.json'));
 
 const app = express();
-const PORT = process.env.PORT || 3005; // Porta padrão do User Service é 3005
+const PORT = process.env.PORT || 3005;
 
 app.use(express.json());
 
-// Rota do Swagger
+app.use('/user', userRoutes);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
-// Health Check
 app.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'OK', service: 'User Service' });
 });
@@ -22,7 +22,7 @@ app.get('/health', (req: Request, res: Response) => {
 async function bootstrap() {
   try {
     await sequelize.authenticate();
-    console.log('✅ User Service: Conexão com DB OK.');
+    console.log('✅ Conexão com o Banco de Dados (User DB) OK.');
     await sequelize.sync({ alter: true });
 
     app.listen(Number(PORT), '0.0.0.0', () => {
@@ -30,9 +30,14 @@ async function bootstrap() {
       console.log(`📂 Documentação: http://localhost:${PORT}/api-docs`);
     });
   } catch (error) {
-    console.error('❌ Erro no User Service:', error);
+    console.error('❌ Erro ao iniciar o User Service:', error);
     process.exit(1);
   }
 }
 
-bootstrap();
+// Só sobe o servidor se não estiver em modo de teste
+if (process.env.NODE_ENV !== 'test') {
+  bootstrap();
+}
+
+export default app;

@@ -5,6 +5,12 @@
     "version": "1.0.0",
     "description": "Processamento de transações e pagamentos"
   },
+  "servers": [
+    {
+      "url": "http://localhost:3004",
+      "description": "Servidor local"
+    }
+  ],
   "paths": {
     "/payment/process": {
       "post": {
@@ -15,11 +21,12 @@
             "application/json": {
               "schema": {
                 "type": "object",
+                "required": ["orderId", "amount", "paymentMethod"],
                 "properties": {
-                  "orderId": { "type": "string" },
-                  "amount": { "type": "number" },
+                  "orderId": { "type": "string", "example": "uuid-do-pedido" },
+                  "amount": { "type": "number", "example": 99.90 },
                   "paymentMethod": { "type": "string", "example": "CREDIT_CARD" },
-                  "cardNumber": { "type": "string" }
+                  "cardNumber": { "type": "string", "example": "4111111111111111" }
                 }
               }
             }
@@ -27,15 +34,21 @@
         },
         "responses": {
           "200": { "description": "Pagamento processado com sucesso" },
-          "402": { "description": "Pagamento recusado" }
+          "402": { "description": "Pagamento recusado" },
+          "400": { "description": "Dados inválidos" }
         }
       }
     },
     "/payment/status/{orderId}": {
       "get": {
-        "summary": "Consulta o status de um pagamento",
-        "parameters": [{ "name": "orderId", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "responses": { "200": { "description": "Sucesso" } }
+        "summary": "Consulta o status de um pagamento pelo orderId",
+        "parameters": [
+          { "name": "orderId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Sucesso" },
+          "404": { "description": "Pagamento não encontrado" }
+        }
       }
     }
   }

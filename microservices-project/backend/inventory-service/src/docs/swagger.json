@@ -5,6 +5,12 @@
     "version": "1.0.0",
     "description": "Controle de estoque de produtos"
   },
+  "servers": [
+    {
+      "url": "http://localhost:3002",
+      "description": "Servidor local"
+    }
+  ],
   "paths": {
     "/inventory": {
       "get": {
@@ -19,27 +25,37 @@
             "application/json": {
               "schema": {
                 "type": "object",
+                "required": ["productId", "quantity"],
                 "properties": {
-                  "productId": { "type": "string" },
-                  "quantity": { "type": "integer" }
+                  "productId": { "type": "string", "example": "uuid-do-produto" },
+                  "quantity":  { "type": "integer", "example": 10 }
                 }
               }
             }
           }
         },
-        "responses": { "201": { "description": "Estoque atualizado" } }
+        "responses": {
+          "201": { "description": "Estoque atualizado" },
+          "400": { "description": "Dados inválidos" }
+        }
       }
     },
     "/inventory/{productId}": {
       "get": {
         "summary": "Verifica estoque de um produto específico",
         "parameters": [{ "name": "productId", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "responses": { "200": { "description": "Sucesso" } }
+        "responses": {
+          "200": { "description": "Sucesso" },
+          "404": { "description": "Produto não encontrado no estoque" }
+        }
       },
       "delete": {
-        "summary": "Zerar estoque do produto",
+        "summary": "Zera o estoque do produto",
         "parameters": [{ "name": "productId", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "responses": { "204": { "description": "Estoque removido" } }
+        "responses": {
+          "204": { "description": "Estoque zerado" },
+          "404": { "description": "Produto não encontrado" }
+        }
       }
     }
   }

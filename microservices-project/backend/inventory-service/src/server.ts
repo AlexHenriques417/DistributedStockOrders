@@ -2,18 +2,21 @@ import 'dotenv/config';
 import express, { Request, Response } from 'express';
 import path from 'path';
 import swaggerUi from 'swagger-ui-express';
-import sequelize from './config/database'; 
-// Supondo que você já tenha as rotas criadas, se não tiver, comente a linha abaixo 
+import sequelize from './config/database';
 import inventoryRoutes from './routes/inventory.routes';
+import { InventoryConsumer } from './consumers/InventoryConsumer';
 
 const swaggerDocument = require(path.resolve(__dirname, './docs/swagger.json'));
 
 const app = express();
-const PORT = process.env.PORT || 3002; // Note que a porta é 3002
+const PORT = process.env.PORT || 3002;
 
 app.use(express.json());
 
-// Rota do Swagger
+// --- ROTAS ---
+app.use('/inventory', inventoryRoutes);
+
+// Swagger
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // Health Check
@@ -21,13 +24,19 @@ app.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'OK', service: 'Inventory Service' });
 });
 
-app.use('/inventory', inventoryRoutes);
-
 async function bootstrap() {
   try {
     await sequelize.authenticate();
     console.log('✅ Inventário: Conexão com DB OK.');
     await sequelize.sync({ alter: true });
+
+    // Inicia o consumer do RabbitMQ
+    try {
+      const consumer = new InventoryConsumer();
+      await consumer.listen();
+    } catch (err) {
+      console.warn('⚠️ RabbitMQ indisponível, consumer não iniciado:', err);
+    }
 
     app.listen(Number(PORT), '0.0.0.0', () => {
       console.log(`🚀 Inventory rodando em: http://localhost:${PORT}`);

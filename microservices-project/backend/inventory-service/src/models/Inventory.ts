@@ -9,7 +9,7 @@ export class Inventory extends Model {
 
   @AllowNull(false)
   @Column(DataType.UUID)
-  productId!: string; // Referência ao ID do produto no Catalog-Service
+  productId!: string;
 
   @AllowNull(false)
   @Default(0)
@@ -17,7 +17,7 @@ export class Inventory extends Model {
   quantity!: number;
 
   @Column(DataType.STRING)
-  location?: string; // Ex: Corredor A, Prateleira 2
+  location?: string;
 }
 
 export default Inventory;

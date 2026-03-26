@@ -5,6 +5,12 @@
     "version": "1.0.0",
     "description": "Gerenciamento de usuários e perfis"
   },
+  "servers": [
+    {
+      "url": "http://localhost:3005",
+      "description": "Servidor local"
+    }
+  ],
   "paths": {
     "/user": {
       "get": {
@@ -19,28 +25,35 @@
             "application/json": {
               "schema": {
                 "type": "object",
+                "required": ["name", "email", "password"],
                 "properties": {
-                  "name": { "type": "string" },
-                  "email": { "type": "string" },
-                  "password": { "type": "string" }
+                  "name": { "type": "string", "example": "João Silva" },
+                  "email": { "type": "string", "example": "joao@email.com" },
+                  "password": { "type": "string", "example": "senha123" }
                 }
               }
             }
           }
         },
-        "responses": { "201": { "description": "Usuário criado" } }
+        "responses": { "201": { "description": "Usuário criado com sucesso" } }
       }
     },
     "/user/{id}": {
       "get": {
         "summary": "Busca perfil de um usuário específico",
         "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "responses": { "200": { "description": "Sucesso" } }
+        "responses": {
+          "200": { "description": "Sucesso" },
+          "404": { "description": "Usuário não encontrado" }
+        }
       },
       "delete": {
         "summary": "Remove uma conta de usuário",
         "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "responses": { "204": { "description": "Usuário removido" } }
+        "responses": {
+          "204": { "description": "Usuário removido" },
+          "404": { "description": "Usuário não encontrado" }
+        }
       }
     }
   }

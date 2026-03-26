@@ -7,17 +7,9 @@ const sequelize = new Sequelize({
   port: Number(process.env.DB_PORT) || 5432,
   username: process.env.DB_USER || 'admin',
   password: process.env.DB_PASSWORD || 'admin',
-  database: process.env.DB_NAME || 'inventory_db', 
-  
+  database: process.env.DB_NAME || 'inventory_db',
   models: [path.join(__dirname, '..', 'models')],
-  
   logging: false,
-  
-  // REMOVA OU COMENTE AS LINHAS ABAIXO:
-  /* modelMatch: (filename, member) => {
-    return filename.substring(0, filename.indexOf('.')).toLowerCase() === member.toLowerCase();
-  },
-  */
 });
 
 export default sequelize;

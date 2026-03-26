@@ -1,5 +1,5 @@
 import { Sequelize } from 'sequelize-typescript';
-import path from 'path';
+import { User } from '../models/User';
 
 const sequelize = new Sequelize({
   dialect: 'postgres',
@@ -8,16 +8,8 @@ const sequelize = new Sequelize({
   username: process.env.DB_USER || 'admin',
   password: process.env.DB_PASSWORD || 'admin',
   database: process.env.DB_NAME || 'user_db', 
-  
-  models: [path.join(__dirname, '..', 'models')],
-  
+  models: [User], // Importação direta é mais segura
   logging: false,
-  
-  // REMOVA OU COMENTE AS LINHAS ABAIXO:
-  /* modelMatch: (filename, member) => {
-    return filename.substring(0, filename.indexOf('.')).toLowerCase() === member.toLowerCase();
-  },
-  */
 });
 
 export default sequelize;
