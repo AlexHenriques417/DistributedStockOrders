@@ -1,29 +1,39 @@
-import { Product } from '../models/Product';
+import { CreateProductCommand } from '../commands/CreateProductCommand';
+import { UpdateProductCommand } from '../commands/UpdateProductCommand';
+import { DeleteProductCommand } from '../commands/DeleteProductCommand';
+import { GetProductsQuery } from '../queries/GetProductsQuery';
 import { CreateProductDTO } from '../dtos/ProductDTO';
-import Redis from 'ioredis';
 
-const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
-
+/**
+ * CatalogService — orquestrador CQRS.
+ * Operações de leitura usam Queries (com cache Redis).
+ * Operações de escrita usam Commands (invalidam cache e emitem eventos).
+ */
 export class CatalogService {
-  async getAllProducts(): Promise<Product[]> {
-    const CACHE_KEY = 'catalog:all_products';
-    
-    // Tentativa de leitura no Cache
-    const cachedData = await redis.get(CACHE_KEY);
-    if (cachedData) return JSON.parse(cachedData);
+  private createProductCommand = new CreateProductCommand();
+  private updateProductCommand = new UpdateProductCommand();
+  private deleteProductCommand = new DeleteProductCommand();
+  private getProductsQuery     = new GetProductsQuery();
 
-    // Busca no DB
-    const products = await Product.findAll();
-    
-    // Salva no Cache por 10 minutos (600s)
-    await redis.setex(CACHE_KEY, 600, JSON.stringify(products));
-    
-    return products;
+  // QUERIES
+  async getAllProducts() {
+    return this.getProductsQuery.findAll();
   }
 
-  async create(data: CreateProductDTO): Promise<Product> {
-    const product = await Product.create(data as any);
-    await redis.del('catalog:all_products'); // Invalida o cache
-    return product;
+  async getProductById(id: string) {
+    return this.getProductsQuery.findById(id);
+  }
+
+  // COMMANDS
+  async create(data: CreateProductDTO) {
+    return this.createProductCommand.execute(data);
+  }
+
+  async update(id: string, data: Partial<{ name: string; price: number; description: string }>) {
+    return this.updateProductCommand.execute(id, data);
+  }
+
+  async delete(id: string) {
+    return this.deleteProductCommand.execute(id);
   }
 }

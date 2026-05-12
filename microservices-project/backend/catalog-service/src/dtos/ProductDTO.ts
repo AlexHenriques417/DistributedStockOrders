@@ -2,7 +2,7 @@ export interface CreateProductDTO {
   name: string;
   description?: string;
   price: number;
-  stock_quantity: number;
+  stock_quantity?: number;
 }
 
 export interface ProductResponseDTO {
