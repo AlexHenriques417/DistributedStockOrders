@@ -1,58 +1,36 @@
-import { Order } from '../models/Order';
-import amqp from 'amqplib';
+import { CreateOrderCommand, CreateOrderInput } from '../commands/CreateOrderCommand';
+import { UpdateOrderStatusCommand } from '../commands/UpdateOrderStatusCommand';
+import { GetOrdersQuery } from '../queries/GetOrdersQuery';
 
+/**
+ * OrderService agora é apenas um ORQUESTRADOR de Commands e Queries (CQRS).
+ * - Operações de escrita → Commands
+ * - Operações de leitura → Queries
+ */
 export class OrderService {
+  private createOrderCommand    = new CreateOrderCommand();
+  private updateStatusCommand   = new UpdateOrderStatusCommand();
+  private getOrdersQuery        = new GetOrdersQuery();
+
+  // ---- QUERIES (leitura) ----
   async findAll() {
-    return await Order.findAll();
+    return this.getOrdersQuery.findAll();
   }
 
   async findById(id: string) {
-    return await Order.findByPk(id);
+    return this.getOrdersQuery.findById(id);
   }
 
-  async createOrder(data: any) {
-    const order = await Order.create({
-      userId:     data.userId,
-      productId:  data.productId,
-      quantity:   data.quantity,
-      totalPrice: data.price * data.quantity,
-      status:     'PENDING'
-    });
-
-    await this.publishOrderCreated(order);
-
-    return order;
+  async findByUser(userId: string) {
+    return this.getOrdersQuery.findByUser(userId);
   }
 
-  async updateStatus(id: string, status: string) {
-    const order = await Order.findByPk(id);
-    if (!order) return null;
-    order.status = status;
-    await order.save();
-    return order;
+  // ---- COMMANDS (escrita) ----
+  async createOrder(data: CreateOrderInput) {
+    return this.createOrderCommand.execute(data);
   }
 
-  private async publishOrderCreated(order: Order) {
-    try {
-      const connection = await amqp.connect(process.env.RABBITMQ_URL || 'amqp://localhost');
-      const channel = await connection.createChannel();
-      const exchange = 'order_events';
-
-      await channel.assertExchange(exchange, 'topic', { durable: true });
-
-      channel.publish(exchange, 'order.created', Buffer.from(JSON.stringify({
-        orderId:     order.id,
-        productId:   order.productId,
-        quantity:    order.quantity,
-        totalAmount: order.totalPrice
-      })));
-
-      console.log(`📦 Evento 'order.created' enviado para o pedido: ${order.id}`);
-
-      await channel.close();
-      await connection.close();
-    } catch (err) {
-      console.warn('⚠️ RabbitMQ indisponível, evento não emitido:', err);
-    }
+  async updateStatus(id: string, status: 'PENDING' | 'PAID' | 'CANCELED') {
+    return this.updateStatusCommand.execute(id, status);
   }
 }
