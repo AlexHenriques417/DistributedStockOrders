@@ -1,17 +1,17 @@
 import { Product } from '../models/Product';
-import Redis from 'ioredis';
-
-const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+import { ProductCacheService } from '../cache/ProductCacheService';
 
 export class UpdateProductCommand {
+  private cache = new ProductCacheService();
+
+  // Corrigido: Definido que a Promise retorna o Product atualizado ou null
   async execute(id: string, data: Partial<{ name: string; price: number; description: string }>): Promise<Product | null> {
     const product = await Product.findByPk(id);
     if (!product) return null;
-
-    await product.update(data);
-    await redis.del('catalog:all_products');
-    await redis.del(`catalog:product:${id}`);
-
+    
+    await product.update(data);           // 1. banco
+    await this.cache.invalidate(id);      // 2. cache (APOS commit)
+    
     console.log(`[COMMAND] Produto atualizado: ${id}`);
     return product;
   }

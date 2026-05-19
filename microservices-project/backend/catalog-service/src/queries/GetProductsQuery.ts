@@ -1,38 +1,28 @@
 import { Product } from '../models/Product';
-import Redis from 'ioredis';
+import { ProductCacheService } from '../cache/ProductCacheService';
 
-const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
-
-/**
- * CQRS - QUERY: Apenas leitura. Usa Redis como cache (Read Model).
- */
 export class GetProductsQuery {
+  private cache = new ProductCacheService();
+
+  // Corrigido: Retorna uma lista de produtos -> Promise<Product[]>
   async findAll(): Promise<Product[]> {
-    const CACHE_KEY  = 'catalog:all_products';
-    const cachedData = await redis.get(CACHE_KEY);
-    if (cachedData) {
-      console.log('[QUERY] Cache HIT: catalog:all_products');
-      return JSON.parse(cachedData);
-    }
+    const cached = await this.cache.getAllProducts();
+    if (cached) return cached;
 
     const products = await Product.findAll();
-    await redis.setex(CACHE_KEY, 600, JSON.stringify(products));
-    console.log('[QUERY] Cache MISS: catalog:all_products — dados buscados do DB');
+    await this.cache.setAllProducts(products.map(p => p.toJSON()));
     return products;
   }
 
+  // Corrigido: Retorna um produto ou null se não encontrar -> Promise<Product | null>
   async findById(id: string): Promise<Product | null> {
-    const CACHE_KEY  = `catalog:product:${id}`;
-    const cachedData = await redis.get(CACHE_KEY);
-    if (cachedData) {
-      console.log(`[QUERY] Cache HIT: ${CACHE_KEY}`);
-      return JSON.parse(cachedData);
-    }
+    const cached = await this.cache.getProduct(id);
+    if (cached) return cached;
 
     const product = await Product.findByPk(id);
-    if (product) {
-      await redis.setex(CACHE_KEY, 600, JSON.stringify(product));
-    }
+    if (!product) return null;
+
+    await this.cache.setProduct(product.toJSON());
     return product;
   }
 }
