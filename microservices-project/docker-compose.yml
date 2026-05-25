@@ -23,12 +23,22 @@ services:
     ports:
       - "5672:5672"
       - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:alpine
     container_name: shared-redis
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   # --- MICROSSERVIÇOS ---
   catalog-service:
@@ -40,7 +50,9 @@ services:
       postgres:
         condition: service_healthy
       rabbitmq:
-        condition: service_started
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       - PORT=3001
       - DB_HOST=postgres
@@ -49,6 +61,7 @@ services:
       - DB_PASSWORD=admin
       - REDIS_URL=redis://redis:6379
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - NODE_ENV=production
 
   inventory-service:
     build: ./backend/inventory-service
@@ -58,12 +71,19 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       - PORT=3002
       - DB_HOST=postgres
       - DB_NAME=inventory_db
       - DB_USER=admin
       - DB_PASSWORD=admin
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - NODE_ENV=production
 
   order-service:
     build: ./backend/order-service
@@ -73,12 +93,19 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       - PORT=3003
       - DB_HOST=postgres
       - DB_NAME=order_db
       - DB_USER=admin
       - DB_PASSWORD=admin
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - NODE_ENV=production
 
   payment-service:
     build: ./backend/payment-service
@@ -88,12 +115,19 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       - PORT=3004
       - DB_HOST=postgres
       - DB_NAME=payment_db
       - DB_USER=admin
       - DB_PASSWORD=admin
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - NODE_ENV=production
 
   user-service:
     build: ./backend/user-service
@@ -103,9 +137,38 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       - PORT=3005
       - DB_HOST=postgres
       - DB_NAME=user_db
       - DB_USER=admin
       - DB_PASSWORD=admin
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - NODE_ENV=production
+
+  # --- API GATEWAY ---
+  api-gateway:
+    build: ./backend/api-gateway
+    container_name: api-gateway
+    ports:
+      - "3000:3000"
+    depends_on:
+      - catalog-service
+      - inventory-service
+      - order-service
+      - payment-service
+      - user-service
+    environment:
+      - PORT=3000
+      - CATALOG_URL=http://catalog-service:3001
+      - INVENTORY_URL=http://inventory-service:3002
+      - ORDER_URL=http://order-service:3003
+      - PAYMENT_URL=http://payment-service:3004
+      - USER_URL=http://user-service:3005
+      - JWT_SECRET=seu-secret-super-seguro-mudar-em-producao
+      - NODE_ENV=production
