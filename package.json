@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
-    "build": "tsc", 
+    "build": "tsc",
     "start": "node dist/server.js"
   },
   "repository": {
@@ -29,14 +29,17 @@
     "pg-hstore": "^2.3.4",
     "reflect-metadata": "^0.2.2",
     "sequelize": "^6.37.8",
-    "sequelize-typescript": "^2.1.6"
+    "sequelize-typescript": "^2.1.6",
+    "socket.io-client": "^4.8.3"
   },
   "devDependencies": {
     "@types/amqplib": "^0.10.8",
     "@types/express": "^5.0.6",
     "@types/node": "^25.5.0",
+    "@types/socket.io-client": "^1.4.36",
+    "@vitejs/plugin-react": "^6.0.2",
     "ts-node-dev": "^2.0.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vite": "^8.0.13"
   }
 }
-

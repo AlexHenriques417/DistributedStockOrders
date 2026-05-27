@@ -72,17 +72,29 @@ services:
   rabbitmq:
     image: rabbitmq:3-management
     container_name: shared-rabbitmq
+<<<<<<< HEAD
     ports: ["5672:5672","15672:15672"]
     healthcheck:
       test: ["CMD","rabbitmq-diagnostics","ping"]
       interval: 10s
       timeout: 5s
       retries: 10
+=======
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+>>>>>>> 4e870be9df7da03aaf020a98f154c1371cfd5edb
 
   # AULA 09 — Redis com senha e persistencia em disco
   redis:
     image: redis:7-alpine
     container_name: shared-redis
+<<<<<<< HEAD
     ports: ["6379:6379"]
     volumes:
       - redis-data:/data
@@ -111,6 +123,15 @@ services:
       - PAYMENT_SERVICE_URL=http://payment-service:3004
       - USER_SERVICE_URL=http://user-service:3005
       - JWT_SECRET=supersecretjwtkey
+=======
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+>>>>>>> 4e870be9df7da03aaf020a98f154c1371cfd5edb
 
   catalog-service:
     build: ./backend/catalog-service
@@ -131,6 +152,7 @@ services:
       - DB_PASSWORD=admin
       - REDIS_URL=redis://:${REDIS_PASSWORD:-redissenha123}@redis:6379
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - NODE_ENV=production
 
   inventory-service:
     build: ./backend/inventory-service
@@ -143,14 +165,24 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       - PORT=3002
       - DB_HOST=postgres-inventory
       - DB_NAME=inventory_db
       - DB_USER=admin
       - DB_PASSWORD=admin
+<<<<<<< HEAD
       - REDIS_URL=redis://:${REDIS_PASSWORD:-redissenha123}@redis:6379
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+=======
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - NODE_ENV=production
+>>>>>>> 4e870be9df7da03aaf020a98f154c1371cfd5edb
 
   order-service:
     build: ./backend/order-service
@@ -163,15 +195,25 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       - PORT=3003
       - DB_HOST=postgres-order
       - DB_NAME=order_db
       - DB_USER=admin
       - DB_PASSWORD=admin
+<<<<<<< HEAD
       - REDIS_URL=redis://:${REDIS_PASSWORD:-redissenha123}@redis:6379
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
       - FRONTEND_URL=http://localhost:4200
+=======
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - NODE_ENV=production
+>>>>>>> 4e870be9df7da03aaf020a98f154c1371cfd5edb
 
   payment-service:
     build: ./backend/payment-service
@@ -182,13 +224,23 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       - PORT=3004
       - DB_HOST=postgres-payment
       - DB_NAME=payment_db
       - DB_USER=admin
       - DB_PASSWORD=admin
+<<<<<<< HEAD
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+=======
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - NODE_ENV=production
+>>>>>>> 4e870be9df7da03aaf020a98f154c1371cfd5edb
 
   user-service:
     build: ./backend/user-service
@@ -199,13 +251,45 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       - PORT=3005
       - DB_HOST=postgres-user
       - DB_NAME=user_db
       - DB_USER=admin
       - DB_PASSWORD=admin
+<<<<<<< HEAD
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
 
 volumes:
   redis-data: {}
+=======
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - NODE_ENV=production
+
+  # --- API GATEWAY ---
+  api-gateway:
+    build: ./backend/api-gateway
+    container_name: api-gateway
+    ports:
+      - "3000:3000"
+    depends_on:
+      - catalog-service
+      - inventory-service
+      - order-service
+      - payment-service
+      - user-service
+    environment:
+      - PORT=3000
+      - CATALOG_URL=http://catalog-service:3001
+      - INVENTORY_URL=http://inventory-service:3002
+      - ORDER_URL=http://order-service:3003
+      - PAYMENT_URL=http://payment-service:3004
+      - USER_URL=http://user-service:3005
+      - JWT_SECRET=seu-secret-super-seguro-mudar-em-producao
+      - NODE_ENV=production
+>>>>>>> 4e870be9df7da03aaf020a98f154c1371cfd5edb
