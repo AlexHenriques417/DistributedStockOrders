@@ -1,34 +1,51 @@
-import Redis from 'ioredis';
+import IORedis from 'ioredis';
 
-export class InventoryCacheService {
-  private readonly redis: Redis;
-  private readonly TTL = 120; // 2 minutos
+export class OrderCacheService {
+  private redis: IORedis;
 
   constructor() {
-    this.redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
-    this.redis.on('error', (err) => console.error('[InvCache] Erro Redis:', err.message));
+    this.redis = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379');
   }
 
-  // Corrigido: Definido que a Promise retorna o objeto genérico (any) ou null
-  async getStock(productId: string): Promise<any | null> {
-    const data = await this.redis.get(`inventory:${productId}`);
-    if (data) { 
-      console.log(`[InvCache] HIT  inventory:${productId}`); 
-      return JSON.parse(data); 
+  async getOrder(orderId: string) {
+    const cached = await this.redis.get(`order:${orderId}`);
+    if (cached) {
+      console.log(`[CACHE HIT] Order ${orderId}`);
+      return JSON.parse(cached);
     }
-    console.log(`[InvCache] MISS inventory:${productId}`);
     return null;
   }
 
-  // Corrigido: Operações de escrita retornam uma Promise vazia (void)
-  async setStock(item: any): Promise<void> {
-    await this.redis.setex(`inventory:${item.productId}`, this.TTL, JSON.stringify(item));
-    console.log(`[InvCache] SET  inventory:${item.productId} (TTL ${this.TTL}s)`);
+  async setOrder(orderId: string, data: any, ttl = 7200) {
+    await this.redis.setex(
+      `order:${orderId}`,
+      ttl,
+      JSON.stringify(data)
+    );
   }
 
-  // Corrigido: Operação de deleção retorna uma Promise vazia (void)
-  async invalidate(productId: string): Promise<void> {
-    await this.redis.del(`inventory:${productId}`);
-    console.log(`[InvCache] INVALIDADO inventory:${productId}`);
+  async cacheOrderList(userId: string, orders: any[], ttl = 1800) {
+    await this.redis.setex(
+      `user_orders:${userId}`,
+      ttl,
+      JSON.stringify(orders)
+    );
+  }
+
+  async getUserOrders(userId: string) {
+    const cached = await this.redis.get(`user_orders:${userId}`);
+    if (cached) {
+      console.log(`[CACHE HIT] User Orders ${userId}`);
+      return JSON.parse(cached);
+    }
+    return null;
+  }
+
+  async invalidateOrder(orderId: string) {
+    await this.redis.del(`order:${orderId}`);
+  }
+
+  async invalidateUserOrders(userId: string) {
+    await this.redis.del(`user_orders:${userId}`);
   }
 }

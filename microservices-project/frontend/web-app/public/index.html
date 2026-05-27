@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DistributedStockOrders - Central de Controle</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      background: linear-gradient(135deg, #0d1117 0%, #161b22 100%);
+      color: #e6edf3;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+      padding: 20px 0;
+      border-bottom: 2px solid #30363d;
+    }
+
+    h1 {
+      color: #58a6ff;
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+    }
+
+    .subtitle {
+      color: #8b949e;
+      font-size: 1.1rem;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+      margin-bottom: 40px;
+    }
+
+    .card {
+      background: rgba(22, 27, 34, 0.8);
+      border: 1px solid #30363d;
+      border-radius: 10px;
+      padding: 25px;
+      transition: all 0.3s ease;
+      backdrop-filter: blur(10px);
+    }
+
+    .card:hover {
+      border-color: #58a6ff;
+      box-shadow: 0 0 20px rgba(88, 166, 255, 0.1);
+      transform: translateY(-5px);
+    }
+
+    .card h2 {
+      color: #58a6ff;
+      font-size: 1.3rem;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .card p {
+      color: #8b949e;
+      line-height: 1.6;
+      margin-bottom: 15px;
+      font-size: 0.95rem;
+    }
+
+    .btn {
+      display: inline-block;
+      padding: 12px 24px;
+      background: transparent;
+      border: 2px solid #58a6ff;
+      color: #58a6ff;
+      border-radius: 6px;
+      text-decoration: none;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-size: 0.95rem;
+    }
+
+    .btn:hover {
+      background: rgba(88, 166, 255, 0.1);
+      transform: translateX(5px);
+    }
+
+    .btn-green {
+      border-color: #3fb950;
+      color: #3fb950;
+    }
+
+    .btn-green:hover {
+      background: rgba(63, 185, 80, 0.1);
+    }
+
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+      margin-top: 20px;
+    }
+
+    .status-item {
+      background: rgba(13, 17, 23, 0.8);
+      border-left: 3px solid #58a6ff;
+      padding: 15px;
+      border-radius: 4px;
+      text-align: center;
+    }
+
+    .status-item.online {
+      border-left-color: #3fb950;
+    }
+
+    .status-item.offline {
+      border-left-color: #f85149;
+    }
+
+    .status-label {
+      color: #8b949e;
+      font-size: 0.85rem;
+      margin-bottom: 5px;
+    }
+
+    .status-value {
+      font-size: 1.1rem;
+      font-weight: bold;
+    }
+
+    .code-block {
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 15px;
+      margin-top: 15px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85rem;
+      overflow-x: auto;
+      color: #79c0ff;
+    }
+
+    footer {
+      text-align: center;
+      color: #8b949e;
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid #30363d;
+    }
+
+    @media (max-width: 768px) {
+      h1 { font-size: 1.8rem; }
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>📊 DistributedStockOrders</h1>
+    <p class="subtitle">Central de Controle - Dashboard Interativo</p>
+  </header>
+
+  <div class="container">
+    
+    <div class="grid">
+
+      <!-- Dashboard Card -->
+      <div class="card">
+        <h2>🎯 Dashboard Principal</h2>
+        <p>Acesse o dashboard interativo para gerenciar todos os microsserviços. Crie produtos, pedidos, processe pagamentos e monitore em tempo real.</p>
+        <a href="Dashboard.html" class="btn btn-green">Abrir Dashboard</a>
+      </div>
+
+      <!-- Documentação Card -->
+      <div class="card">
+        <h2>📖 Documentação</h2>
+        <p>Leia a documentação completa sobre como usar o dashboard, funcionalidades e troubleshooting.</p>
+        <a href="DASHBOARD_README.md" class="btn">Ver Documentação</a>
+      </div>
+
+      <!-- API Gateway Card -->
+      <div class="card">
+        <h2>🔌 API Gateway</h2>
+        <p>Health check e informações sobre a API Gateway que orquestra todos os microsserviços.</p>
+        <button class="btn" onclick="checkGateway()">Verificar Status</button>
+        <div id="gateway-status" style="margin-top: 10px;"></div>
+      </div>
+
+    </div>
+
+    <!-- Status de Microsserviços -->
+    <div class="card" style="margin-bottom: 30px;">
+      <h2>🔍 Status dos Microsserviços</h2>
+      <p style="margin-bottom: 20px;">Verifique a conectividade dos microsserviços</p>
+      
+      <div class="status-grid">
+        <div class="status-item" id="status-catalog">
+          <div class="status-label">Catálogo</div>
+          <div class="status-value">3001</div>
+        </div>
+        <div class="status-item" id="status-inventory">
+          <div class="status-label">Inventário</div>
+          <div class="status-value">3002</div>
+        </div>
+        <div class="status-item" id="status-order">
+          <div class="status-label">Pedidos</div>
+          <div class="status-value">3003</div>
+        </div>
+        <div class="status-item" id="status-payment">
+          <div class="status-label">Pagamento</div>
+          <div class="status-value">3004</div>
+        </div>
+        <div class="status-item" id="status-user">
+          <div class="status-label">Usuários</div>
+          <div class="status-value">3005</div>
+        </div>
+      </div>
+
+      <button class="btn" style="margin-top: 20px; width: 100%;" onclick="checkAllServices()">🔄 Verificar Todos</button>
+    </div>
+
+    <!-- Início Rápido -->
+    <div class="card">
+      <h2>🚀 Início Rápido</h2>
+      <p>Siga estes passos para começar:</p>
+      
+      <ol style="color: #8b949e; margin: 15px 0 15px 20px; line-height: 1.8;">
+        <li><strong style="color: #e6edf3;">Acesse o Dashboard</strong> - Clique no botão acima</li>
+        <li><strong style="color: #e6edf3;">Faça Login</strong> - Use suas credenciais ou registre uma conta</li>
+        <li><strong style="color: #e6edf3;">Crie um Produto</strong> - Adicione itens ao catálogo</li>
+        <li><strong style="color: #e6edf3;">Crie um Pedido</strong> - Faça um pedido com o produto criado</li>
+        <li><strong style="color: #e6edf3;">Monitore</strong> - Veja os eventos em tempo real</li>
+      </ol>
+
+      <div class="code-block">
+Credenciais de Teste:
+Email: user@test.com
+Senha: password123
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    <p>DistributedStockOrders v2.0 | Dashboard Interativo | 2026-05-19</p>
+    <p style="font-size: 0.9rem; margin-top: 10px;">Todos os microsserviços devem estar rodando em localhost</p>
+  </footer>
+
+  <script>
+    async function checkService(port) {
+      try {
+        const response = await fetch(`http://localhost:${port}/health`, {
+          timeout: 5000
+        }).catch(() => ({ ok: false }));
+        return response.ok;
+      } catch {
+        return false;
+      }
+    }
+
+    async function checkGateway() {
+      const status = document.getElementById('gateway-status');
+      status.innerHTML = '<span style="color: #d29922;">Verificando...</span>';
+      
+      const isOnline = await checkService(3000);
+      
+      if (isOnline) {
+        status.innerHTML = '<span style="color: #3fb950; font-weight: bold;">✓ Online e respondendo</span>';
+      } else {
+        status.innerHTML = '<span style="color: #f85149; font-weight: bold;">✗ Offline ou indisponível</span>';
+      }
+    }
+
+    async function checkAllServices() {
+      const services = [
+        { port: 3001, id: 'catalog', name: 'Catálogo' },
+        { port: 3002, id: 'inventory', name: 'Inventário' },
+        { port: 3003, id: 'order', name: 'Pedidos' },
+        { port: 3004, id: 'payment', name: 'Pagamento' },
+        { port: 3005, id: 'user', name: 'Usuários' }
+      ];
+
+      for (const service of services) {
+        const element = document.getElementById(`status-${service.id}`);
+        element.innerHTML = `<div class="status-label">${service.name}</div><div class="status-value" style="color: #d29922;">⏳</div>`;
+      }
+
+      for (const service of services) {
+        const isOnline = await checkService(service.port);
+        const element = document.getElementById(`status-${service.id}`);
+        
+        if (isOnline) {
+          element.className = 'status-item online';
+          element.innerHTML = `<div class="status-label">${service.name}</div><div class="status-value" style="color: #3fb950;">✓ Online</div>`;
+        } else {
+          element.className = 'status-item offline';
+          element.innerHTML = `<div class="status-label">${service.name}</div><div class="status-value" style="color: #f85149;">✗ Offline</div>`;
+        }
+      }
+    }
+
+    // Auto-check on load
+    window.addEventListener('load', () => {
+      checkGateway();
+      setTimeout(checkAllServices, 500);
+    });
+  </script>
+
+</body>
+</html>

@@ -15,6 +15,13 @@ const httpServer = http.createServer(app);
 const PORT       = process.env.PORT || 3003;
 
 app.use(express.json());
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', process.env.FRONTEND_URL || '*');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
 app.use('/order',    orderRoutes);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 app.get('/health', (_req: Request, res: Response) => {
@@ -52,3 +59,5 @@ async function bootstrap() {
 if (process.env.NODE_ENV !== 'test') bootstrap();
 export { app, httpServer };
 export default app;
+
+//Observalidade e Resiliencia
