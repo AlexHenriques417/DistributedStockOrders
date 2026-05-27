@@ -1,0 +1,107 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model InventoryItem {
+  id              String    @id @default(uuid())
+  productId       String    @unique
+  sku             String    @unique
+  name            String
+  description     String?
+  quantity        Int       @default(0)
+  reservedQty     Int       @default(0)
+  availableQty    Int       @default(0)
+  reorderPoint    Int       @default(10)
+  reorderQty      Int       @default(50)
+  unitCost        Float     @default(0)
+  status          String    @default("active")
+  location        String?
+  warehouseId     String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  transactions    InventoryTransaction[]
+  reservations    StockReservation[]
+  warehouse       Warehouse?    @relation(fields: [warehouseId], references: [id])
+
+  @@index([productId], name: "idx_inventory_item_product_id")
+  @@index([sku], name: "idx_inventory_item_sku")
+  @@index([status], name: "idx_inventory_item_status")
+  @@index([warehouseId], name: "idx_inventory_item_warehouse_id")
+  @@map("inventory_items")
+}
+
+model InventoryTransaction {
+  id              String    @id @default(uuid())
+  inventoryItemId String
+  transactionType String
+  quantity        Int
+  previousQty     Int
+  newQty          Int
+  unitCost        Float?
+  totalCost       Float?
+  referenceType   String?
+  referenceId     String?
+  notes           String?
+  performedBy     String?
+  createdAt       DateTime  @default(now())
+
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+
+  @@index([inventoryItemId], name: "idx_transaction_inventory_item_id")
+  @@index([transactionType], name: "idx_transaction_type")
+  @@index([createdAt], name: "idx_transaction_created_at")
+  @@index([referenceType, referenceId], name: "idx_transaction_reference")
+  @@map("inventory_transactions")
+}
+
+model StockReservation {
+  id              String    @id @default(uuid())
+  inventoryItemId String
+  orderId         String
+  quantity        Int
+  status          String    @default("reserved")
+  expiresAt       DateTime
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  releasedAt      DateTime?
+
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+
+  @@index([inventoryItemId], name: "idx_reservation_inventory_item_id")
+  @@index([orderId], name: "idx_reservation_order_id")
+  @@index([status], name: "idx_reservation_status")
+  @@index([expiresAt], name: "idx_reservation_expires_at")
+  @@map("stock_reservations")
+}
+
+model Warehouse {
+  id              String    @id @default(uuid())
+  name            String
+  code            String    @unique
+  address         String
+  city            String
+  state           String
+  country         String
+  postalCode      String
+  phone           String?
+  email           String?
+  capacity        Int?
+  status          String    @default("active")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  inventoryItems  InventoryItem[]
+
+  @@index([code], name: "idx_warehouse_code")
+  @@index([status], name: "idx_warehouse_status")
+  @@map("warehouses")
+}

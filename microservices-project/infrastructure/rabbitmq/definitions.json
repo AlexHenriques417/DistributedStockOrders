@@ -1,0 +1,261 @@
+{
+  "rabbit_version": "3.12",
+  "users": [
+    {
+      "name": "admin",
+      "password": "rabbitmq_pass_123",
+      "tags": "administrator"
+    },
+    {
+      "name": "user_service",
+      "password": "user_service_pass",
+      "tags": ""
+    },
+    {
+      "name": "catalog_service",
+      "password": "catalog_service_pass",
+      "tags": ""
+    },
+    {
+      "name": "inventory_service",
+      "password": "inventory_service_pass",
+      "tags": ""
+    },
+    {
+      "name": "order_service",
+      "password": "order_service_pass",
+      "tags": ""
+    },
+    {
+      "name": "payment_service",
+      "password": "payment_service_pass",
+      "tags": ""
+    }
+  ],
+  "vhosts": [
+    { "name": "/" }
+  ],
+  "permissions": [
+    {
+      "user": "admin",
+      "vhost": "/",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    },
+    {
+      "user": "user_service",
+      "vhost": "/",
+      "configure": "user_service\\..*",
+      "write": ".*",
+      "read": ".*"
+    },
+    {
+      "user": "catalog_service",
+      "vhost": "/",
+      "configure": "catalog_service\\..*",
+      "write": ".*",
+      "read": ".*"
+    },
+    {
+      "user": "inventory_service",
+      "vhost": "/",
+      "configure": "inventory_service\\..*",
+      "write": ".*",
+      "read": ".*"
+    },
+    {
+      "user": "order_service",
+      "vhost": "/",
+      "configure": "order_service\\..*",
+      "write": ".*",
+      "read": ".*"
+    },
+    {
+      "user": "payment_service",
+      "vhost": "/",
+      "configure": "payment_service\\..*",
+      "write": ".*",
+      "read": ".*"
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "user.events",
+      "vhost": "/",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "catalog.events",
+      "vhost": "/",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "inventory.events",
+      "vhost": "/",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "order.events",
+      "vhost": "/",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "payment.events",
+      "vhost": "/",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "dlx",
+      "vhost": "/",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    }
+  ],
+  "queues": [
+    {
+      "name": "inventory.service.queue",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "dlx",
+        "x-message-ttl": 604800000
+      }
+    },
+    {
+      "name": "catalog.service.queue",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "dlx",
+        "x-message-ttl": 604800000
+      }
+    },
+    {
+      "name": "order.service.queue",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "dlx",
+        "x-message-ttl": 604800000
+      }
+    },
+    {
+      "name": "payment.service.queue",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "dlx",
+        "x-message-ttl": 604800000
+      }
+    },
+    {
+      "name": "user.service.queue",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "dlx",
+        "x-message-ttl": 604800000
+      }
+    },
+    {
+      "name": "dlq",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    }
+  ],
+  "bindings": [
+    {
+      "source": "order.events",
+      "vhost": "/",
+      "destination": "inventory.service.queue",
+      "destination_type": "queue",
+      "routing_key": "order.*",
+      "arguments": {}
+    },
+    {
+      "source": "order.events",
+      "vhost": "/",
+      "destination": "payment.service.queue",
+      "destination_type": "queue",
+      "routing_key": "order.*",
+      "arguments": {}
+    },
+    {
+      "source": "payment.events",
+      "vhost": "/",
+      "destination": "order.service.queue",
+      "destination_type": "queue",
+      "routing_key": "payment.*",
+      "arguments": {}
+    },
+    {
+      "source": "inventory.events",
+      "vhost": "/",
+      "destination": "order.service.queue",
+      "destination_type": "queue",
+      "routing_key": "inventory.*",
+      "arguments": {}
+    },
+    {
+      "source": "catalog.events",
+      "vhost": "/",
+      "destination": "inventory.service.queue",
+      "destination_type": "queue",
+      "routing_key": "catalog.product.*",
+      "arguments": {}
+    },
+    {
+      "source": "dlx",
+      "vhost": "/",
+      "destination": "dlq",
+      "destination_type": "queue",
+      "routing_key": "",
+      "arguments": {}
+    }
+  ],
+  "policies": [
+    {
+      "name": "ha-all",
+      "vhost": "/",
+      "pattern": ".*",
+      "apply-to": "all",
+      "definition": {
+        "ha-mode": "all",
+        "ha-sync-mode": "automatic"
+      },
+      "priority": 0
+    }
+  ],
+  "topic_permissions": []
+}

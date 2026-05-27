@@ -1,23 +1,33 @@
-# Usa uma imagem leve do Node.js
-FROM node:20-alpine
+# Build stage
+FROM node:20-alpine AS builder
 
-# Define a pasta de trabalho dentro do container
-WORKDIR /usr/src/app
+WORKDIR /app
 
-# Copia os arquivos de dependências
 COPY package*.json ./
+RUN npm ci
 
-# Instala as dependências (incluindo as de desenvolvimento para o build)
-RUN npm install
+COPY prisma ./prisma/
+RUN npx prisma generate
 
-# Copia o restante do código fonte
 COPY . .
-
-# Compila o TypeScript para JavaScript
 RUN npm run build
 
-# Expõe a porta (será mapeada no docker-compose)
-EXPOSE 3000
+# Production stage
+FROM node:20-alpine
 
-# Comando para rodar a aplicação
-CMD ["npm", "run", "start"]
+WORKDIR /app
+
+RUN apk add --no-cache openssl
+
+COPY package*.json ./
+RUN npm ci --only=production
+
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+
+EXPOSE 3002
+
+USER node
+
+CMD ["node", "dist/server.js"]

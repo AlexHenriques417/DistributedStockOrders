@@ -1,0 +1,119 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CREDIT_CARD
+  PIX
+  BOLETO
+}
+
+enum RefundStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REJECTED
+}
+
+model Payment {
+  id              String           @id @default(uuid())
+  orderId         String
+  userId          String
+  amount          Decimal          @db.Decimal(10, 2)
+  currency        String           @default("BRL")
+  status          PaymentStatus    @default(PENDING)
+  paymentMethod   PaymentMethod
+  description     String?
+  metadata        Json?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  processedAt     DateTime?
+  completedAt     DateTime?
+
+  transactions    PaymentTransaction[]
+  refunds         Refund[]
+  paymentMethodDetails UserPaymentMethod?
+
+  @@index([orderId], name: "idx_payment_order_id")
+  @@index([userId], name: "idx_payment_user_id")
+  @@index([status], name: "idx_payment_status")
+  @@index([createdAt], name: "idx_payment_created_at")
+  @@map("payments")
+}
+
+model PaymentTransaction {
+  id              String      @id @default(uuid())
+  paymentId       String
+  transactionType String
+  amount          Decimal     @db.Decimal(10, 2)
+  status          String
+  gatewayResponse Json?
+  gatewayTxId     String?
+  processedAt     DateTime    @default(now())
+  createdAt       DateTime    @default(now())
+
+  payment         Payment     @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId], name: "idx_transaction_payment_id")
+  @@index([gatewayTxId], name: "idx_transaction_gateway_tx_id")
+  @@map("payment_transactions")
+}
+
+model Refund {
+  id              String        @id @default(uuid())
+  paymentId       String
+  amount          Decimal       @db.Decimal(10, 2)
+  status          RefundStatus  @default(PENDING)
+  reason          String?
+  gatewayResponse Json?
+  gatewayRefundId String?
+  processedAt     DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  payment         Payment       @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId], name: "idx_refund_payment_id")
+  @@index([status], name: "idx_refund_status")
+  @@map("refunds")
+}
+
+model UserPaymentMethod {
+  id              String       @id @default(uuid())
+  paymentId       String       @unique
+  methodType      PaymentMethod
+  cardLastFour    String?
+  cardBrand       String?
+  cardExpiryMonth Int?
+  cardExpiryYear  Int?
+  cardholderName  String?
+  pixKey          String?
+  boletoBarcode   String?
+  boletoDueDate   DateTime?
+  isDefault       Boolean      @default(false)
+  metadata        Json?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  payment         Payment      @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@map("user_payment_methods")
+}

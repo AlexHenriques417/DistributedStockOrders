@@ -1,45 +1,35 @@
 {
-  "name": "distributedstockorders",
-  "version": "1.0.0",
-  "description": "Sistema de Gestão de Pedidos com Estoque Distribuído",
-  "main": "index.js",
+  "name": "vite-react-typescript-starter",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
-    "build": "tsc",
-    "start": "node dist/server.js"
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.app.json"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/AlexHenriques417/DistributedStockOrders.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "bugs": {
-    "url": "https://github.com/AlexHenriques417/DistributedStockOrders/issues"
-  },
-  "homepage": "https://github.com/AlexHenriques417/DistributedStockOrders#readme",
   "dependencies": {
-    "amqplib": "^0.10.9",
-    "dotenv": "^17.3.1",
-    "express": "^5.2.1",
-    "ioredis": "^5.10.0",
-    "pg": "^8.20.0",
-    "pg-hstore": "^2.3.4",
-    "reflect-metadata": "^0.2.2",
-    "sequelize": "^6.37.8",
-    "sequelize-typescript": "^2.1.6",
-    "socket.io-client": "^4.8.3"
+    "@supabase/supabase-js": "^2.57.4",
+    "lucide-react": "^0.344.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
-    "@types/amqplib": "^0.10.8",
-    "@types/express": "^5.0.6",
-    "@types/node": "^25.5.0",
-    "@types/socket.io-client": "^1.4.36",
-    "@vitejs/plugin-react": "^6.0.2",
-    "ts-node-dev": "^2.0.0",
-    "typescript": "^5.9.3",
-    "vite": "^8.0.13"
+    "@eslint/js": "^9.9.1",
+    "@types/react": "^18.3.5",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.18",
+    "eslint": "^9.9.1",
+    "eslint-plugin-react-hooks": "^5.1.0-rc.0",
+    "eslint-plugin-react-refresh": "^0.4.11",
+    "globals": "^15.9.0",
+    "postcss": "^8.4.35",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5.5.3",
+    "typescript-eslint": "^8.3.0",
+    "vite": "^5.4.2"
   }
 }

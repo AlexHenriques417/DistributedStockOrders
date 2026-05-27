@@ -1,77 +1,140 @@
-import 'dotenv/config';
-import express, { Request, Response } from 'express';
-import proxy from 'express-http-proxy';
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
 import morgan from 'morgan';
-import { authMiddleware } from './middleware/auth.middleware';
+import compression from 'compression';
+import hpp from 'hpp';
+import dotenv from 'dotenv';
+import { createProxyMiddleware } from 'express-http-proxy';
+import rateLimit from 'express-rate-limit';
+import RedisStore from 'rate-limit-redis';
+import Redis from 'ioredis';
+import { expressPromBundle } from '../node_modules/express-prom-bundle';
+
+import { errorHandler, notFoundHandler } from './middleware/errorHandler';
+import { authMiddleware } from './middleware/auth';
+import { requestLogger } from './middleware/requestLogger';
+import routes from './routes';
+
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const CATALOG_URL   = process.env.CATALOG_SERVICE_URL   || 'http://localhost:3001';
-const INVENTORY_URL = process.env.INVENTORY_SERVICE_URL || 'http://localhost:3002';
-const ORDER_URL     = process.env.ORDER_SERVICE_URL     || 'http://localhost:3003';
-const PAYMENT_URL   = process.env.PAYMENT_SERVICE_URL   || 'http://localhost:3004';
-const USER_URL      = process.env.USER_SERVICE_URL      || 'http://localhost:3005';
-
-// --- MIDDLEWARES GLOBAIS ---
-app.use(morgan('combined'));
-app.use(express.json());
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', process.env.FRONTEND_URL || '*');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-  if (req.method === 'OPTIONS') return res.sendStatus(204);
-  next();
+// Redis client for rate limiting
+const redisClient = new Redis({
+  host: process.env.REDIS_HOST || 'localhost',
+  port: parseInt(process.env.REDIS_PORT || '6379'),
+  password: process.env.REDIS_PASSWORD,
 });
 
-// --- HEALTH CHECK DO GATEWAY ---
-app.get('/health', (_req: Request, res: Response) => {
-  res.json({
-    status: 'OK',
-    service: 'API Gateway',
-    routes: {
-      catalog:   `${CATALOG_URL}/catalog`,
-      inventory: `${INVENTORY_URL}/inventory`,
-      orders:    `${ORDER_URL}/order`,
-      payments:  `${PAYMENT_URL}/payment`,
-      users:     `${USER_URL}/user`,
-    }
+// Prometheus metrics
+const metricsMiddleware = expressPromBundle({
+  includeMethod: true,
+  includePath: true,
+  promClient: {
+    collectDefaultMetrics: {},
+  },
+});
+app.use(metricsMiddleware);
+
+// Security middleware
+app.use(helmet());
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || 'http://localhost:4000',
+  credentials: true,
+}));
+app.use(hpp());
+
+// Body parsing
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Compression
+app.use(compression());
+
+// Logging
+app.use(morgan('combined'));
+app.use(requestLogger);
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'),
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'),
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: new RedisStore({
+    sendCommand: (...args: string[]) => redisClient.call(...args),
+  }),
+});
+
+app.use('/api/', limiter);
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    service: 'api-gateway',
   });
 });
 
-// --- ROTAS PÚBLICAS (sem autenticação) ---
-// Registro e login de usuários
-app.use('/api/users', proxy(USER_URL, {
-  proxyReqPathResolver: (req) => `/user${req.url}`
-}));
+// API routes (direct routing with auth)
+app.use('/api/auth', routes.authRoutes);
+app.use('/api/users', authMiddleware, routes.userRoutes);
 
-// --- ROTAS PROTEGIDAS (requerem JWT) ---
-app.use('/api/catalog', authMiddleware, proxy(CATALOG_URL, {
-  proxyReqPathResolver: (req) => `/catalog${req.url}`
-}));
+// Service proxies
+const serviceProxies = {
+  '/api/users': process.env.USER_SERVICE_URL || 'http://localhost:3001',
+  '/api/catalog': process.env.CATALOG_SERVICE_URL || 'http://localhost:3002',
+  '/api/inventory': process.env.INVENTORY_SERVICE_URL || 'http://localhost:3003',
+  '/api/orders': process.env.ORDER_SERVICE_URL || 'http://localhost:3004',
+  '/api/payments': process.env.PAYMENT_SERVICE_URL || 'http://localhost:3005',
+};
 
-app.use('/api/inventory', authMiddleware, proxy(INVENTORY_URL, {
-  proxyReqPathResolver: (req) => `/inventory${req.url}`
-}));
-
-app.use('/api/orders', authMiddleware, proxy(ORDER_URL, {
-  proxyReqPathResolver: (req) => `/order${req.url}`
-}));
-
-app.use('/api/payments', authMiddleware, proxy(PAYMENT_URL, {
-  proxyReqPathResolver: (req) => `/payment${req.url}`
-}));
-
-// --- FALLBACK ---
-app.use((_req: Request, res: Response) => {
-  res.status(404).json({ error: 'Rota não encontrada no API Gateway' });
+Object.entries(serviceProxies).forEach(([path, target]) => {
+  app.use(path, authMiddleware, createProxyMiddleware({
+    target,
+    changeOrigin: true,
+    pathRewrite: { [`^${path}`]: '/api' },
+    onProxyReq: (proxyReq, req, res) => {
+      // Forward user information to downstream services
+      if ((req as any).user) {
+        proxyReq.setHeader('X-User-ID', (req as any).user.id);
+        proxyReq.setHeader('X-User-Role', (req as any).user.role);
+      }
+    },
+    onError: (err, req, res) => {
+      console.error('Proxy error:', err);
+      res.status(500).json({
+        status: 'error',
+        message: 'Service unavailable',
+      });
+    },
+  }));
 });
 
-app.listen(Number(PORT), '0.0.0.0', () => {
-  console.log(`🚀 API Gateway rodando na porta ${PORT}`);
-  console.log(`🔐 Rotas públicas:   POST /api/users, GET /api/users`);
-  console.log(`🔒 Rotas protegidas: /api/catalog, /api/inventory, /api/orders, /api/payments`);
+// Error handling
+app.use(notFoundHandler);
+app.use(errorHandler);
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM signal received: closing HTTP server');
+  redisClient.quit();
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT signal received: closing HTTP server');
+  redisClient.quit();
+  process.exit(0);
+});
+
+app.listen(PORT, () => {
+  console.log(`API Gateway running on port ${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV}`);
 });
 
 export default app;
-

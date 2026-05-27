@@ -1,0 +1,196 @@
+version: '3.9'
+
+services:
+  # PostgreSQL - User Service
+  postgres-user:
+    image: postgres:15-alpine
+    container_name: postgres-user
+    environment:
+      POSTGRES_USER: user_admin
+      POSTGRES_PASSWORD: user_pass_123
+      POSTGRES_DB: user_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_user_data:/var/lib/postgresql/data
+      - ./postgres/init-user.sql:/docker-entrypoint-initdb.d/init-user.sql
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user_admin -d user_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # PostgreSQL - Catalog Service
+  postgres-catalog:
+    image: postgres:15-alpine
+    container_name: postgres-catalog
+    environment:
+      POSTGRES_USER: catalog_admin
+      POSTGRES_PASSWORD: catalog_pass_123
+      POSTGRES_DB: catalog_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_catalog_data:/var/lib/postgresql/data
+      - ./postgres/init-catalog.sql:/docker-entrypoint-initdb.d/init-catalog.sql
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U catalog_admin -d catalog_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # PostgreSQL - Inventory Service
+  postgres-inventory:
+    image: postgres:15-alpine
+    container_name: postgres-inventory
+    environment:
+      POSTGRES_USER: inventory_admin
+      POSTGRES_PASSWORD: inventory_pass_123
+      POSTGRES_DB: inventory_db
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_inventory_data:/var/lib/postgresql/data
+      - ./postgres/init-inventory.sql:/docker-entrypoint-initdb.d/init-inventory.sql
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U inventory_admin -d inventory_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # PostgreSQL - Order Service
+  postgres-order:
+    image: postgres:15-alpine
+    container_name: postgres-order
+    environment:
+      POSTGRES_USER: order_admin
+      POSTGRES_PASSWORD: order_pass_123
+      POSTGRES_DB: order_db
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres_order_data:/var/lib/postgresql/data
+      - ./postgres/init-order.sql:/docker-entrypoint-initdb.d/init-order.sql
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U order_admin -d order_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # PostgreSQL - Payment Service
+  postgres-payment:
+    image: postgres:15-alpine
+    container_name: postgres-payment
+    environment:
+      POSTGRES_USER: payment_admin
+      POSTGRES_PASSWORD: payment_pass_123
+      POSTGRES_DB: payment_db
+    ports:
+      - "5436:5432"
+    volumes:
+      - postgres_payment_data:/var/lib/postgresql/data
+      - ./postgres/init-payment.sql:/docker-entrypoint-initdb.d/init-payment.sql
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U payment_admin -d payment_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis - Cache Distribuído
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --requirepass redis_pass_123
+    volumes:
+      - redis_data:/data
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redis_pass_123", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # RabbitMQ - Message Broker
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: rabbitmq_pass_123
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
+      - ./rabbitmq/definitions.json:/etc/rabbitmq/definitions.json
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Prometheus - Monitoramento
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    networks:
+      - microservices-network
+
+  # Grafana - Dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: grafana_pass_123
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - microservices-network
+
+  # Zipkin - Distributed Tracing
+  zipkin:
+    image: openzipkin/zipkin:latest
+    container_name: zipkin
+    ports:
+      - "9411:9411"
+    networks:
+      - microservices-network
+
+volumes:
+  postgres_user_data:
+  postgres_catalog_data:
+  postgres_inventory_data:
+  postgres_order_data:
+  postgres_payment_data:
+  redis_data:
+  rabbitmq_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  microservices-network:
+    driver: bridge

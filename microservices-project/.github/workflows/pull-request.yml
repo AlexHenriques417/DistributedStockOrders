@@ -1,0 +1,126 @@
+name: Pull Request Check
+
+on:
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check affected services
+        id: affected
+        run: |
+          # Detect which services were changed
+          echo "Checking for changes..."
+
+          changes=$(git diff --name-only origin/main...HEAD)
+
+          if echo "$changes" | grep -q "backend/api-gateway"; then
+            echo "::set-output name=api-gateway::true"
+          fi
+
+          if echo "$changes" | grep -q "backend/user-service"; then
+            echo "::set-output name=user-service::true"
+          fi
+
+          if echo "$changes" | grep -q "backend/catalog-service"; then
+            echo "::set-output name=catalog-service::true"
+          fi
+
+          if echo "$changes" | grep -q "backend/inventory-service"; then
+            echo "::set-output name=inventory-service::true"
+          fi
+
+          if echo "$changes" | grep -q "backend/order-service"; then
+            echo "::set-output name=order-service::true"
+          fi
+
+          if echo "$changes" | grep -q "backend/payment-service"; then
+            echo "::set-output name=payment-service::true"
+          fi
+
+          if echo "$changes" | grep -q "frontend"; then
+            echo "::set-output name=frontend::true"
+          fi
+
+  test-api-gateway:
+    needs: analyze
+    if: needs.analyze.outputs.api-gateway == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install and Test
+        working-directory: backend/api-gateway
+        run: |
+          npm ci
+          npm run lint
+          npm test
+
+  test-user-service:
+    needs: analyze
+    if: needs.analyze.outputs.user-service == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install and Test
+        working-directory: backend/user-service
+        run: |
+          npm ci
+          npm run lint
+          npm test
+
+  test-catalog-service:
+    needs: analyze
+    if: needs.analyze.outputs.catalog-service == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install and Test
+        working-directory: backend/catalog-service
+        run: |
+          npm ci
+          npm run lint
+          npm test
+
+  test-frontend:
+    needs: analyze
+    if: needs.analyze.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install and Build
+        working-directory: frontend/web-app
+        run: |
+          npm ci
+          npm run lint
+          npm run build
