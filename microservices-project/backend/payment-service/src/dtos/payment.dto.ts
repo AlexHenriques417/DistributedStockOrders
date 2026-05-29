@@ -17,7 +17,7 @@ import {
 export enum PaymentMethod {
   CREDIT_CARD = 'CREDIT_CARD',
   PIX = 'PIX',
-  BOLETO = 'BOOLETO',
+  BOLETO = 'BOLETO',
 }
 
 export class ProcessPaymentDto {
@@ -71,14 +71,14 @@ export class CreditCardDetailsDto {
 }
 
 export class ProcessCreditCardPaymentDto extends ProcessPaymentDto {
-  @IsEnum(PaymentMethod.CREDIT_CARD)
+  @IsEnum(PaymentMethod)
   paymentMethod!: PaymentMethod.CREDIT_CARD;
 
   creditCardDetails!: CreditCardDetailsDto;
 }
 
 export class ProcessPixPaymentDto extends ProcessPaymentDto {
-  @IsEnum(PaymentMethod.PIX)
+  @IsEnum(PaymentMethod)
   paymentMethod!: PaymentMethod.PIX;
 
   @IsOptional()
@@ -87,8 +87,8 @@ export class ProcessPixPaymentDto extends ProcessPaymentDto {
 }
 
 export class ProcessBoletoPaymentDto extends ProcessPaymentDto {
-  @IsEnum(PaymentMethod.BOLETEO)
-  paymentMethod!: PaymentMethod.BOLETEO;
+  @IsEnum(PaymentMethod)
+  paymentMethod!: PaymentMethod.BOLETO;
 
   @IsOptional()
   @Matches(/^\d{3}\.\d{3}\.\d{3}-\d{2}$|^\d{11}$/)
@@ -123,7 +123,7 @@ export class ListPaymentsDto {
   userId?: string;
 
   @IsOptional()
-  @IsEnum(['PENDING', 'PROCESSING', 'COMPLETED', 'FAILED', 'CANCELLED', 'REFUNDED'])
+  @IsEnum(['PENDING', 'PROCESSING', 'COMPLETED', 'FAILED', 'CANCELLED', 'REFUNDED', 'PARTIALLY_REFUNDED'])
   status?: string;
 
   @IsOptional()

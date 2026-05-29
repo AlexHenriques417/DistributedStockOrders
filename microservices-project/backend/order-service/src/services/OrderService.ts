@@ -1,10 +1,9 @@
-import { PrismaClient, Decimal } from '@prisma/client';
 import { CreateOrderDto, UpdateOrderStatusDto, CancelOrderDto, AddToCartDto, UpdateCartItemDto, ValidateCouponDto, OrderQueryDto } from '../dtos/order.dto';
 import { ApiError } from '../middleware/errorHandler';
 import { StatusCodes } from 'http-status-codes';
 import { publishEvent } from '../config/rabbitmq';
-import connect from 'amqplib';
-import { prisma } from '../server';
+import amqp from 'amqplib';
+import prisma from '../lib/prisma';
 
 // Order status enum
 export enum OrderStatus {
@@ -30,35 +29,36 @@ const validTransitions: Record<string, string[]> = {
 
 export class OrderService {
   // Order Operations
-  async createOrder(userId: string, data: CreateOrderDto, channel: connect.Channel) {
+  async createOrder(userId: string, data: CreateOrderDto, channel: amqp.Channel) {
     // Calculate totals
-    let totalAmount = new Decimal(0);
+    let totalAmount = 0;
     const orderItems = data.items.map(item => {
-      const totalPrice = new Decimal(item.unitPrice).mul(item.quantity);
-      totalAmount = totalAmount.add(totalPrice);
+      const totalPrice = item.unitPrice * item.quantity;
+      totalAmount += totalPrice;
       return {
         productId: item.productId,
         productName: item.productName,
         productSku: item.productSku,
         quantity: item.quantity,
-        unitPrice: new Decimal(item.unitPrice),
+        unitPrice: item.unitPrice,
         totalPrice,
       };
     });
 
     // Apply coupon if provided
-    let discountAmount = new Decimal(0);
-    let couponId = null;
+    let discountAmount = 0;
+    let couponId: string | null = null;
+    
     if (data.couponCode) {
       const couponResult = await this.validateCoupon({
         code: data.couponCode,
-        orderAmount: totalAmount.toNumber(),
+        orderAmount: totalAmount,
       });
-      discountAmount = new Decimal(couponResult.discountAmount);
+      discountAmount = parseFloat(couponResult.discountAmount);
       couponId = couponResult.couponId;
     }
 
-    const finalAmount = totalAmount.sub(discountAmount);
+    const finalAmount = totalAmount - discountAmount;
 
     // Create order
     const order = await prisma.order.create({
@@ -111,6 +111,7 @@ export class OrderService {
         unitPrice: item.unitPrice.toString(),
       })),
       shippingAddress: data.shippingAddress,
+      paymentMethod: data.paymentMethod,
       timestamp: new Date().toISOString(),
     });
 
@@ -187,7 +188,7 @@ export class OrderService {
     };
   }
 
-  async updateOrderStatus(orderId: string, data: UpdateOrderStatusDto, channel: connect.Channel) {
+  async updateOrderStatus(orderId: string, data: UpdateOrderStatusDto, channel: amqp.Channel) {
     const order = await prisma.order.findUnique({
       where: { id: orderId },
     });
@@ -207,7 +208,6 @@ export class OrderService {
 
     const updateData: any = {
       status: data.status,
-      updatedAt: new Date(),
     };
 
     // Set timestamps for specific statuses
@@ -245,7 +245,7 @@ export class OrderService {
     return updatedOrder;
   }
 
-  async cancelOrder(orderId: string, userId: string, data: CancelOrderDto, channel: connect.Channel) {
+  async cancelOrder(orderId: string, userId: string, data: CancelOrderDto, channel: amqp.Channel) {
     const order = await this.getOrderById(orderId, userId);
 
     // Can only cancel pending or confirmed orders
@@ -261,7 +261,7 @@ export class OrderService {
       data: {
         status: OrderStatus.CANCELLED,
         cancelledAt: new Date(),
-        notes: data.reason,
+        notes: data.reason || order.notes,
       },
     });
 
@@ -314,8 +314,7 @@ export class OrderService {
         where: { id: existingItem.id },
         data: {
           quantity: existingItem.quantity + data.quantity,
-          unitPrice: new Decimal(data.unitPrice),
-          updatedAt: new Date(),
+          unitPrice: data.unitPrice,
         },
       });
     }
@@ -328,7 +327,7 @@ export class OrderService {
         productName: data.productName,
         productSku: data.productSku,
         quantity: data.quantity,
-        unitPrice: new Decimal(data.unitPrice),
+        unitPrice: data.unitPrice,
       },
     });
   }
@@ -351,7 +350,6 @@ export class OrderService {
       where: { id: itemId },
       data: {
         quantity: data.quantity,
-        updatedAt: new Date(),
       },
     });
   }
@@ -390,13 +388,14 @@ export class OrderService {
   async getCartSummary(userId: string) {
     const cart = await this.getOrCreateCart(userId);
 
-    let subtotal = new Decimal(0);
+    let subtotal = 0;
     const items = cart.cartItems.map(item => {
-      const itemTotal = item.unitPrice.mul(item.quantity);
-      subtotal = subtotal.add(itemTotal);
+      const itemTotal = Number(item.unitPrice) * item.quantity;
+      subtotal += itemTotal;
       return {
         ...item,
         itemTotal: itemTotal.toString(),
+        unitPrice: item.unitPrice.toString(),
       };
     });
 
@@ -431,7 +430,8 @@ export class OrderService {
       throw new ApiError(StatusCodes.BAD_REQUEST, 'Coupon usage limit reached');
     }
 
-    if (coupon.minOrderAmount && new Decimal(data.orderAmount).lt(coupon.minOrderAmount)) {
+    const minOrderAmount = Number(coupon.minOrderAmount || 0);
+    if (minOrderAmount > 0 && data.orderAmount < minOrderAmount) {
       throw new ApiError(
         StatusCodes.BAD_REQUEST,
         `Minimum order amount is ${coupon.minOrderAmount}`
@@ -439,15 +439,17 @@ export class OrderService {
     }
 
     // Calculate discount
-    let discountAmount: Decimal;
+    let discountAmount: number;
+    const discountValue = Number(coupon.discountValue);
+    
     if (coupon.discountType === 'percentage') {
-      discountAmount = new Decimal(data.orderAmount).mul(coupon.discountValue).div(100);
+      discountAmount = (data.orderAmount * discountValue) / 100;
     } else {
-      discountAmount = coupon.discountValue;
+      discountAmount = discountValue;
 
       // Ensure discount doesn't exceed order amount
-      if (discountAmount.gt(data.orderAmount)) {
-        discountAmount = new Decimal(data.orderAmount);
+      if (discountAmount > data.orderAmount) {
+        discountAmount = data.orderAmount;
       }
     }
 
@@ -466,8 +468,8 @@ export class OrderService {
         code: data.code,
         description: data.description,
         discountType: data.discountType,
-        discountValue: new Decimal(data.discountValue),
-        minOrderAmount: data.minOrderAmount ? new Decimal(data.minOrderAmount) : null,
+        discountValue: data.discountValue,
+        minOrderAmount: data.minOrderAmount || null,
         maxUses: data.maxUses,
         validFrom: new Date(data.validFrom),
         validUntil: new Date(data.validUntil),

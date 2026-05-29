@@ -7,20 +7,19 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 model Category {
-  id          String     @id @default(uuid())
+  id          String    @id @default(uuid())
   name        String
-  slug        String     @unique
+  slug        String    @unique
   description String?
-  imageUrl     String?
+  imageUrl    String?
   parentId    String?
-  isActive    Boolean    @default(true)
-  sortOrder   Int        @default(0)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  isActive    Boolean   @default(true)
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   parent      Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
   children    Category[] @relation("CategoryHierarchy")
@@ -33,34 +32,34 @@ model Category {
 }
 
 model Product {
-  id              String           @id @default(uuid())
-  sku             String           @unique
-  name            String
-  slug            String           @unique
-  description     String?
+  id               String           @id @default(uuid())
+  sku              String           @unique
+  name             String
+  slug             String           @unique
+  description      String?
   shortDescription String?
-  price           Decimal          @db.Decimal(10, 2)
-  comparePrice    Decimal?         @db.Decimal(10, 2)
-  costPrice       Decimal?         @db.Decimal(10, 2)
-  quantity        Int              @default(0)
-  categoryId      String
-  brand           String?
-  status          String           @default("draft") // draft, active, inactive, archived
-  isFeatured      Boolean          @default(false)
-  isDigital       Boolean          @default(false)
-  weight          Decimal?         @db.Decimal(8, 3)
-  dimensions      Json?
-  metaTitle       String?
-  metaDescription String?
-  tags            String[]
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  publishedAt     DateTime?
+  price            Decimal          @db.Decimal(10, 2)
+  comparePrice     Decimal?         @db.Decimal(10, 2)
+  costPrice        Decimal?         @db.Decimal(10, 2)
+  quantity         Int              @default(0)
+  categoryId       String
+  brand            String?
+  status           String           @default("draft") // draft, active, inactive, archived
+  isFeatured       Boolean          @default(false)
+  isDigital        Boolean          @default(false)
+  weight           Decimal?         @db.Decimal(8, 3)
+  dimensions       Json?
+  metaTitle        String?
+  metaDescription  String?
+  tags             String[]
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  publishedAt      DateTime?
 
-  category        Category         @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  images          ProductImage[]
-  variants        ProductVariant[]
-  reviews         ProductReview[]
+  category         Category         @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  images           ProductImage[]
+  variants         ProductVariant[]
+  reviews          ProductReview[]
 
   @@index([sku], name: "idx_product_sku")
   @@index([slug], name: "idx_product_slug")
@@ -72,35 +71,35 @@ model Product {
 }
 
 model ProductImage {
-  id          String   @id @default(uuid())
-  productId   String
-  url         String
-  altText     String?
-  isPrimary   Boolean  @default(false)
-  sortOrder   Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(uuid())
+  productId String
+  url       String
+  altText   String?
+  isPrimary Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@index([productId], name: "idx_product_image_product_id")
   @@map("product_images")
 }
 
 model ProductVariant {
-  id              String   @id @default(uuid())
-  productId       String
-  sku             String   @unique
-  name            String
-  price           Decimal  @db.Decimal(10, 2)
-  comparePrice     Decimal? @db.Decimal(10, 2)
-  quantity        Int      @default(0)
-  attributes      Json     @default("{}")
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id           String   @id @default(uuid())
+  productId    String
+  sku          String   @unique
+  name         String
+  price        Decimal  @db.Decimal(10, 2)
+  comparePrice Decimal? @db.Decimal(10, 2)
+  quantity     Int      @default(0)
+  attributes   Json     @default("{}")
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@index([productId], name: "idx_product_variant_product_id")
   @@index([sku], name: "idx_product_variant_sku")
@@ -108,19 +107,19 @@ model ProductVariant {
 }
 
 model ProductReview {
-  id          String   @id @default(uuid())
-  productId   String
-  userId      String
-  rating      Int
-  title       String?
-  comment     String?
+  id           String   @id @default(uuid())
+  productId    String
+  userId       String
+  rating       Int
+  title        String?
+  comment      String?
   isVerified   Boolean  @default(false)
   isApproved   Boolean  @default(false)
   helpfulVotes Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@index([productId], name: "idx_product_review_product_id")
   @@index([userId], name: "idx_product_review_user_id")

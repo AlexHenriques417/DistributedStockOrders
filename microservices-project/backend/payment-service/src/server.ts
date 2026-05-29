@@ -5,7 +5,7 @@ import morgan from 'morgan';
 import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
 import Redis from 'ioredis';
-import connect from 'amqplib';
+import amqp, { Channel } from 'amqplib';
 
 import paymentRoutes from './routes/paymentRoutes';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
@@ -16,54 +16,112 @@ import paymentService from './services/paymentService';
 dotenv.config();
 
 const app = express();
+
 const PORT = process.env.PORT || 3005;
 
 export const prisma = new PrismaClient();
-export const redis = new Redis({
-  host: process.env.REDIS_HOST || 'localhost',
-  port: parseInt(process.env.REDIS_PORT || '6379'),
-  password: process.env.REDIS_PASSWORD,
+
+/*
+=====================================================
+REDIS
+=====================================================
+*/
+export const redis = new Redis(
+  process.env.REDIS_URL || 'redis://:redis_pass_123@localhost:6379'
+);
+
+redis.on('connect', () => {
+  console.log('Connected to Redis');
 });
 
-let channel: connect.Channel | null = null;
+redis.on('error', (err) => {
+  console.error('Redis Error:', err);
+});
+
+/*
+=====================================================
+RABBITMQ
+=====================================================
+*/
+let channel: Channel;
 
 const startServer = async () => {
   try {
-    // Connect to RabbitMQ
-    const connection = await connect(process.env.RABBITMQ_URL || 'amqp://localhost:5672');
+    /*
+    =====================================================
+    RABBITMQ CONNECTION
+    =====================================================
+    */
+    const connection = await amqp.connect(
+      process.env.RABBITMQ_URL ||
+        'amqp://admin:rabbitmq_pass_123@localhost:5672'
+    );
+
     channel = await connection.createChannel();
+
     await setupRabbitMQ(channel);
+
     console.log('Connected to RabbitMQ');
+
     app.set('rabbitmqChannel', channel);
 
-    // Start consuming order events
-    await consumeOrderEvents(channel, async (message, routingKey) => {
-      console.log(`Processing order event: ${routingKey}`);
-      try {
-        if (routingKey === 'order.created') {
-          await paymentService.handleOrderCreated(message, channel);
-        } else if (routingKey === 'order.confirmed') {
-          await paymentService.handleOrderConfirmed(message, channel);
+    /*
+    =====================================================
+    CONSUME ORDER EVENTS - CORRIGIDO
+    =====================================================
+    */
+    await consumeOrderEvents(
+      channel,
+      async (message: any, routingKey: string) => {
+        console.log(`Processing order event: ${routingKey}`);
+
+        try {
+          if (routingKey === 'order.created') {
+            // CORRIGIDO: handleOrderCreated recebe apenas 1 argumento
+            await paymentService.handleOrderCreated(message);
+          }
+
+          if (routingKey === 'order.confirmed') {
+            await paymentService.handleOrderConfirmed(message, channel);
+          }
+        } catch (error) {
+          console.error('Error handling order event:', error);
         }
-      } catch (error) {
-        console.error('Error handling order event:', error);
       }
-    });
+    );
 
-    // Security middleware
+    /*
+    =====================================================
+    MIDDLEWARES
+    =====================================================
+    */
     app.use(helmet());
-    app.use(cors({ origin: process.env.CORS_ORIGIN || '*', credentials: true }));
 
-    // Body parsing
+    app.use(
+      cors({
+        origin: process.env.CORS_ORIGIN || '*',
+        credentials: true,
+      })
+    );
+
     app.use(express.json({ limit: '10mb' }));
-    app.use(express.urlencoded({ extended: true }));
 
-    // Logging
+    app.use(
+      express.urlencoded({
+        extended: true,
+      })
+    );
+
     app.use(morgan('combined'));
+
     app.use(requestLogger);
 
-    // Health check
-    app.get('/health', (req, res) => {
+    /*
+    =====================================================
+    HEALTH CHECK
+    =====================================================
+    */
+    app.get('/health', (_req, res) => {
       res.status(200).json({
         status: 'healthy',
         timestamp: new Date().toISOString(),
@@ -75,20 +133,37 @@ const startServer = async () => {
       });
     });
 
-    // Metrics endpoint for Prometheus
-    app.get('/metrics', async (req, res) => {
+    /*
+    =====================================================
+    METRICS
+    =====================================================
+    */
+    app.get('/metrics', async (_req, res) => {
       res.set('Content-Type', 'text/plain');
-      // Prometheus metrics would be handled by express-prom-bundle
       res.send('# Metrics available through prom-client');
     });
 
-    // API Routes
+    /*
+    =====================================================
+    ROUTES
+    =====================================================
+    */
     app.use('/api/payments', paymentRoutes);
 
-    // Error handling
+    /*
+    =====================================================
+    ERROR HANDLERS
+    =====================================================
+    */
     app.use(notFoundHandler);
+
     app.use(errorHandler);
 
+    /*
+    =====================================================
+    SERVER
+    =====================================================
+    */
     app.listen(PORT, () => {
       console.log(`Payment Service running on port ${PORT}`);
       console.log(`Environment: ${process.env.NODE_ENV}`);
@@ -99,15 +174,20 @@ const startServer = async () => {
   }
 };
 
+/*
+=====================================================
+GRACEFUL SHUTDOWN
+=====================================================
+*/
 process.on('SIGTERM', async () => {
-  console.log('SIGTERM signal received: closing HTTP server');
+  console.log('SIGTERM signal received');
   await prisma.$disconnect();
   redis.quit();
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
-  console.log('SIGINT signal received: closing HTTP server');
+  console.log('SIGINT signal received');
   await prisma.$disconnect();
   redis.quit();
   process.exit(0);

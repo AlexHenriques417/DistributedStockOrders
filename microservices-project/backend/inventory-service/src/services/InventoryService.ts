@@ -1,11 +1,9 @@
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import { ApiError } from '../middleware/errorHandler';
 import { StatusCodes } from 'http-status-codes';
 import { redis } from '../server';
-import connect from 'amqplib';
+import amqp from 'amqplib';
 import { publishEvent } from '../config/rabbitmq';
-
-const prisma = new PrismaClient();
 
 const INVENTORY_CACHE_PREFIX = 'inventory:';
 const CACHE_TTL = 300; // 5 minutes
@@ -163,7 +161,7 @@ export class InventoryService {
     notes?: string;
     unitCost?: number;
     performedBy?: string;
-  }, channel: connect.Channel) {
+  }, channel: amqp.Channel) {
     const item = await prisma.inventoryItem.findUnique({
       where: { id: itemId },
     });
@@ -243,7 +241,7 @@ export class InventoryService {
     orderId: string;
     quantity: number;
     expiresInSeconds?: number;
-  }, channel: connect.Channel) {
+  }, channel: amqp.Channel) {
     const item = await prisma.inventoryItem.findUnique({
       where: { id: itemId },
     });
@@ -300,7 +298,7 @@ export class InventoryService {
   async releaseStock(itemId: string, data: {
     orderId: string;
     quantity: number;
-  }, channel: connect.Channel) {
+  }, channel: amqp.Channel) {
     const item = await prisma.inventoryItem.findUnique({
       where: { id: itemId },
     });
@@ -363,7 +361,7 @@ export class InventoryService {
   async confirmReservation(itemId: string, data: {
     orderId: string;
     quantity: number;
-  }, channel: connect.Channel) {
+  }, channel: amqp.Channel) {
     const item = await prisma.inventoryItem.findUnique({
       where: { id: itemId },
     });
@@ -431,7 +429,7 @@ export class InventoryService {
     targetWarehouseId: string;
     quantity: number;
     notes?: string;
-  }, channel: connect.Channel) {
+  }, channel: amqp.Channel) {
     const item = await prisma.inventoryItem.findUnique({
       where: { id: itemId },
     });
@@ -643,7 +641,7 @@ export class InventoryService {
   }
 
   // Clean up expired reservations
-  async cleanupExpiredReservations(channel: connect.Channel) {
+  async cleanupExpiredReservations(channel: amqp.Channel) {
     const expiredReservations = await prisma.stockReservation.findMany({
       where: {
         status: 'reserved',
@@ -738,7 +736,7 @@ export class InventoryService {
     await redis.del(`${INVENTORY_CACHE_PREFIX}sku:${sku}`);
   }
 
-  private async checkAndPublishLowStock(item: any, channel: connect.Channel) {
+  private async checkAndPublishLowStock(item: any, channel: amqp.Channel) {
     const lowThreshold = parseInt(process.env.LOW_STOCK_THRESHOLD || '10');
     const criticalThreshold = parseInt(process.env.CRITICAL_STOCK_THRESHOLD || '5');
 

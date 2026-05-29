@@ -1,46 +1,66 @@
+import 'reflect-metadata';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
-import { PrismaClient } from '@prisma/client';
 import Redis from 'ioredis';
-import connect from 'amqplib';
+import amqp, { Channel } from 'amqplib';
 
 import orderRoutes from './routes/orderRoutes';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/requestLogger';
 import { setupRabbitMQ, consumeEvents } from './config/rabbitmq';
+import prisma from './lib/prisma';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3004;
 
-export const prisma = new PrismaClient();
-export const redis = new Redis({
-  host: process.env.REDIS_HOST || 'localhost',
-  port: parseInt(process.env.REDIS_PORT || '6379'),
-  password: process.env.REDIS_PASSWORD,
+// Redis
+export const redis = new Redis(
+  process.env.REDIS_URL || 'redis://:redis_pass_123@localhost:6379'
+);
+
+redis.on('connect', () => {
+  console.log('Connected to Redis');
 });
 
-let channel: connect.Channel | null = null;
+redis.on('error', (err) => {
+  console.error('Redis Error:', err);
+});
+
+// RabbitMQ Channel
+let channel: Channel;
 
 const startServer = async () => {
   try {
     // Connect to RabbitMQ
-    const connection = await connect(process.env.RABBITMQ_URL || 'amqp://localhost:5672');
+    const connection = await amqp.connect(
+      process.env.RABBITMQ_URL || 'amqp://admin:rabbitmq_pass_123@localhost:5672'
+    );
+    
     channel = await connection.createChannel();
     await setupRabbitMQ(channel);
     console.log('Connected to RabbitMQ');
+    
     app.set('rabbitmqChannel', channel);
+    
+    // Store channel globally for saga orchestrator
+    (global as any).rabbitmqChannel = channel;
 
     // Start consuming events from other services
     await consumeEvents(channel);
 
     // Security middleware
     app.use(helmet());
-    app.use(cors({ origin: process.env.CORS_ORIGIN || '*', credentials: true }));
+    app.use(
+      cors({
+        origin: process.env.CORS_ORIGIN || '*',
+        credentials: true,
+      })
+    );
 
     // Body parsing
     app.use(express.json({ limit: '10mb' }));
@@ -51,7 +71,7 @@ const startServer = async () => {
     app.use(requestLogger);
 
     // Health check
-    app.get('/health', (req, res) => {
+    app.get('/health', (_req, res) => {
       res.status(200).json({
         status: 'healthy',
         timestamp: new Date().toISOString(),
@@ -64,9 +84,8 @@ const startServer = async () => {
     });
 
     // Metrics endpoint for Prometheus
-    app.get('/metrics', async (req, res) => {
+    app.get('/metrics', async (_req, res) => {
       res.set('Content-Type', 'text/plain');
-      // Prometheus metrics would be handled by express-prom-bundle
       res.send('# Metrics available through prom-client');
     });
 
@@ -87,6 +106,7 @@ const startServer = async () => {
   }
 };
 
+// Graceful shutdown
 process.on('SIGTERM', async () => {
   console.log('SIGTERM signal received: closing HTTP server');
   await prisma.$disconnect();
@@ -103,4 +123,5 @@ process.on('SIGINT', async () => {
 
 startServer();
 
+export { prisma, channel };
 export default app;

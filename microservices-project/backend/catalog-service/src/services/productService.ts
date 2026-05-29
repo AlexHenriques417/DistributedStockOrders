@@ -1,5 +1,5 @@
-import { PrismaClient } from '@prisma/client';
-import connect from 'amqplib';
+import prisma from '../lib/prisma';
+import amqp from 'amqplib';
 import { ApiError } from '../middleware/errorHandler';
 import { StatusCodes } from 'http-status-codes';
 import { redis } from '../server';
@@ -48,11 +48,9 @@ import {
   UpdateCategoryDto,
 } from '../dtos/product.dto';
 
-const prisma = new PrismaClient();
-
 export class ProductService {
   // Product Commands
-  async createProduct(channel: connect.Channel, data: CreateProductDto) {
+  async createProduct(channel: amqp.Channel, data: CreateProductDto) {
     // Check if SKU exists
     const existingProduct = await prisma.product.findUnique({
       where: { sku: data.sku },
@@ -84,7 +82,7 @@ export class ProductService {
     return command.execute();
   }
 
-  async updateProduct(channel: connect.Channel, productId: string, data: UpdateProductDto) {
+  async updateProduct(channel: amqp.Channel, productId: string, data: UpdateProductDto) {
     const product = await prisma.product.findUnique({
       where: { id: productId },
     });
@@ -117,7 +115,7 @@ export class ProductService {
     return command.execute();
   }
 
-  async deleteProduct(channel: connect.Channel, productId: string) {
+  async deleteProduct(channel: amqp.Channel, productId: string) {
     const product = await prisma.product.findUnique({
       where: { id: productId },
     });
@@ -197,7 +195,7 @@ export class ProductService {
   }
 
   // Product Image Commands
-  async createProductImage(channel: connect.Channel, data: CreateProductImageDto) {
+  async createProductImage(channel: amqp.Channel, data: CreateProductImageDto) {
     const product = await prisma.product.findUnique({
       where: { id: data.productId },
     });
@@ -210,7 +208,7 @@ export class ProductService {
     return command.execute();
   }
 
-  async deleteProductImage(channel: connect.Channel, imageId: string) {
+  async deleteProductImage(channel: amqp.Channel, imageId: string) {
     const command = new DeleteProductImageCommand(imageId, channel);
     const result = await command.execute();
 
@@ -222,7 +220,7 @@ export class ProductService {
   }
 
   // Product Variant Commands
-  async createProductVariant(channel: connect.Channel, data: CreateProductVariantDto) {
+  async createProductVariant(channel: amqp.Channel, data: CreateProductVariantDto) {
     const product = await prisma.product.findUnique({
       where: { id: data.productId },
     });
@@ -244,7 +242,7 @@ export class ProductService {
     return command.execute();
   }
 
-  async updateProductVariant(channel: connect.Channel, variantId: string, data: UpdateProductVariantDto) {
+  async updateProductVariant(channel: amqp.Channel, variantId: string, data: UpdateProductVariantDto) {
     const variant = await prisma.productVariant.findUnique({
       where: { id: variantId },
     });
@@ -266,7 +264,7 @@ export class ProductService {
     return command.execute();
   }
 
-  async deleteProductVariant(channel: connect.Channel, variantId: string) {
+  async deleteProductVariant(channel: amqp.Channel, variantId: string) {
     const command = new DeleteProductVariantCommand(variantId, channel);
     const result = await command.execute();
 
@@ -278,7 +276,7 @@ export class ProductService {
   }
 
   // Product Review Commands
-  async createProductReview(channel: connect.Channel, data: CreateProductReviewDto) {
+  async createProductReview(channel: amqp.Channel, data: CreateProductReviewDto) {
     const product = await prisma.product.findUnique({
       where: { id: data.productId },
     });
@@ -368,7 +366,7 @@ export class ProductService {
   }
 
   // Category Commands
-  async createCategory(channel: connect.Channel, data: CreateCategoryDto) {
+  async createCategory(channel: amqp.Channel, data: CreateCategoryDto) {
     const existingSlug = await prisma.category.findUnique({
       where: { slug: data.slug },
     });
@@ -391,7 +389,7 @@ export class ProductService {
     return command.execute();
   }
 
-  async updateCategory(channel: connect.Channel, categoryId: string, data: UpdateCategoryDto) {
+  async updateCategory(channel: amqp.Channel, categoryId: string, data: UpdateCategoryDto) {
     const category = await prisma.category.findUnique({
       where: { id: categoryId },
     });
@@ -428,7 +426,7 @@ export class ProductService {
     return command.execute();
   }
 
-  async deleteCategory(channel: connect.Channel, categoryId: string) {
+  async deleteCategory(channel: amqp.Channel, categoryId: string) {
     const category = await prisma.category.findUnique({
       where: { id: categoryId },
     });

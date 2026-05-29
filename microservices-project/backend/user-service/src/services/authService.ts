@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import * as jwt from 'jsonwebtoken';
+
 import { RegisterDto, LoginDto } from '../dtos/auth.dto';
 import { ApiError } from '../middleware/errorHandler';
 import { StatusCodes } from 'http-status-codes';
@@ -11,11 +12,16 @@ const prisma = new PrismaClient();
 export class AuthService {
   async register(data: RegisterDto, channel: any) {
     const existingUser = await prisma.user.findUnique({
-      where: { email: data.email },
+      where: {
+        email: data.email,
+      },
     });
 
     if (existingUser) {
-      throw new ApiError(StatusCodes.CONFLICT, 'Email already registered');
+      throw new ApiError(
+        StatusCodes.CONFLICT,
+        'Email already registered'
+      );
     }
 
     const passwordHash = await bcrypt.hash(
@@ -56,7 +62,11 @@ export class AuthService {
       timestamp: new Date().toISOString(),
     });
 
-    const tokens = await this.generateTokens(user.id, user.email, user.role);
+    const tokens = await this.generateTokens(
+      user.id,
+      user.email,
+      user.role
+    );
 
     return {
       user: {
@@ -72,26 +82,44 @@ export class AuthService {
 
   async login(data: LoginDto, channel: any) {
     const user = await prisma.user.findUnique({
-      where: { email: data.email },
+      where: {
+        email: data.email,
+      },
     });
 
     if (!user) {
-      throw new ApiError(StatusCodes.UNAUTHORIZED, 'Invalid credentials');
+      throw new ApiError(
+        StatusCodes.UNAUTHORIZED,
+        'Invalid credentials'
+      );
     }
 
     if (user.status !== 'active') {
-      throw new ApiError(StatusCodes.FORBIDDEN, 'Account is not active');
+      throw new ApiError(
+        StatusCodes.FORBIDDEN,
+        'Account is not active'
+      );
     }
 
-    const isPasswordValid = await bcrypt.compare(data.password, user.passwordHash);
+    const isPasswordValid = await bcrypt.compare(
+      data.password,
+      user.passwordHash
+    );
 
     if (!isPasswordValid) {
-      throw new ApiError(StatusCodes.UNAUTHORIZED, 'Invalid credentials');
+      throw new ApiError(
+        StatusCodes.UNAUTHORIZED,
+        'Invalid credentials'
+      );
     }
 
     await prisma.user.update({
-      where: { id: user.id },
-      data: { lastLoginAt: new Date() },
+      where: {
+        id: user.id,
+      },
+      data: {
+        lastLoginAt: new Date(),
+      },
     });
 
     // Publish user logged in event
@@ -101,7 +129,11 @@ export class AuthService {
       timestamp: new Date().toISOString(),
     });
 
-    const tokens = await this.generateTokens(user.id, user.email, user.role);
+    const tokens = await this.generateTokens(
+      user.id,
+      user.email,
+      user.role
+    );
 
     return {
       user: {
@@ -118,43 +150,77 @@ export class AuthService {
   async refreshToken(refreshToken: string) {
     const decoded = jwt.verify(
       refreshToken,
-      process.env.JWT_REFRESH_SECRET!
-    ) as { id: string; email: string; role: string };
+      process.env.JWT_REFRESH_SECRET as string
+    ) as {
+      id: string;
+      email: string;
+      role: string;
+    };
 
     const user = await prisma.user.findUnique({
-      where: { id: decoded.id },
+      where: {
+        id: decoded.id,
+      },
     });
 
     if (!user) {
-      throw new ApiError(StatusCodes.UNAUTHORIZED, 'Invalid refresh token');
+      throw new ApiError(
+        StatusCodes.UNAUTHORIZED,
+        'Invalid refresh token'
+      );
     }
 
-    return this.generateTokens(user.id, user.email, user.role);
+    return this.generateTokens(
+      user.id,
+      user.email,
+      user.role
+    );
   }
 
   async logout(userId: string) {
-    // Invalidate sessions (in production, you'd store tokens in Redis)
+    // Invalidate sessions
     await prisma.userSession.deleteMany({
-      where: { userId },
+      where: {
+        userId,
+      },
     });
 
-    return { message: 'Logged out successfully' };
+    return {
+      message: 'Logged out successfully',
+    };
   }
 
-  private async generateTokens(userId: string, email: string, role: string) {
+  private async generateTokens(
+    userId: string,
+    email: string,
+    role: string
+  ) {
+    const payload = {
+      id: userId,
+      email,
+      role,
+    };
+
     const accessToken = jwt.sign(
-      { id: userId, email, role },
-      process.env.JWT_SECRET!,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+      payload,
+      process.env.JWT_SECRET as string,
+      {
+        expiresIn: 60 * 60 * 24 * 7, // 7 dias
+      }
     );
 
     const refreshToken = jwt.sign(
-      { id: userId, email, role },
-      process.env.JWT_REFRESH_SECRET!,
-      { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '30d' }
+      payload,
+      process.env.JWT_REFRESH_SECRET as string,
+      {
+        expiresIn: 60 * 60 * 24 * 30, // 30 dias
+      }
     );
 
-    return { accessToken, refreshToken };
+    return {
+      accessToken,
+      refreshToken,
+    };
   }
 }
 

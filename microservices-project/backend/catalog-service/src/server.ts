@@ -3,53 +3,72 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
-import { PrismaClient } from '@prisma/client';
 import Redis from 'ioredis';
-import connect from 'amqplib';
+import amqp, { Channel } from 'amqplib';
 
 import productRoutes from './routes/productRoutes';
 import categoryRoutes from './routes/categoryRoutes';
+
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/requestLogger';
 import { setupRabbitMQ } from './config/rabbitmq';
+
+// ✅ IMPORTAÇÃO CORRETA (singleton)
+import prisma from './lib/prisma';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3002;
 
-export const prisma = new PrismaClient();
-export const redis = new Redis({
-  host: process.env.REDIS_HOST || 'localhost',
-  port: parseInt(process.env.REDIS_PORT || '6379'),
-  password: process.env.REDIS_PASSWORD,
+// Redis
+export const redis = new Redis(
+  process.env.REDIS_URL || 'redis://:redis_pass_123@localhost:6379'
+);
+
+redis.on('connect', () => {
+  console.log('Connected to Redis');
 });
 
-let channel: connect.Channel | null = null;
+redis.on('error', (err) => {
+  console.error('Redis Error:', err);
+});
 
+let channel: Channel;
+
+// 🚀 START SERVER
 const startServer = async () => {
   try {
-    // Connect to RabbitMQ
-    const connection = await connect(process.env.RABBITMQ_URL || 'amqp://localhost:5672');
+    // RabbitMQ connection
+    const connection = await amqp.connect(
+      process.env.RABBITMQ_URL ||
+        'amqp://admin:rabbitmq_pass_123@localhost:5672'
+    );
+
     channel = await connection.createChannel();
     await setupRabbitMQ(channel);
+
     console.log('Connected to RabbitMQ');
+
     app.set('rabbitmqChannel', channel);
 
-    // Security middleware
+    // Middlewares
     app.use(helmet());
-    app.use(cors({ origin: process.env.CORS_ORIGIN || '*', credentials: true }));
+    app.use(
+      cors({
+        origin: process.env.CORS_ORIGIN || '*',
+        credentials: true,
+      })
+    );
 
-    // Body parsing
     app.use(express.json({ limit: '10mb' }));
     app.use(express.urlencoded({ extended: true }));
 
-    // Logging
     app.use(morgan('combined'));
     app.use(requestLogger);
 
     // Health check
-    app.get('/health', (req, res) => {
+    app.get('/health', (_req, res) => {
       res.status(200).json({
         status: 'healthy',
         timestamp: new Date().toISOString(),
@@ -61,14 +80,13 @@ const startServer = async () => {
       });
     });
 
-    // Metrics endpoint for Prometheus
-    app.get('/metrics', async (req, res) => {
+    // Metrics
+    app.get('/metrics', async (_req, res) => {
       res.set('Content-Type', 'text/plain');
-      // Prometheus metrics would be handled by express-prom-bundle
       res.send('# Metrics available through prom-client');
     });
 
-    // API Routes
+    // Routes
     app.use('/api/products', productRoutes);
     app.use('/api/categories', categoryRoutes);
 
@@ -86,15 +104,16 @@ const startServer = async () => {
   }
 };
 
+// Graceful shutdown
 process.on('SIGTERM', async () => {
-  console.log('SIGTERM signal received: closing HTTP server');
+  console.log('SIGTERM received: shutting down...');
   await prisma.$disconnect();
   redis.quit();
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
-  console.log('SIGINT signal received: closing HTTP server');
+  console.log('SIGINT received: shutting down...');
   await prisma.$disconnect();
   redis.quit();
   process.exit(0);

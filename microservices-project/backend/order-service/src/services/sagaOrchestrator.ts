@@ -1,6 +1,5 @@
-import { PrismaClient, Decimal } from '@prisma/client';
-import connect from 'amqplib';
-import { prisma } from '../server';
+import amqp from 'amqplib';
+import prisma from '../lib/prisma';
 import { publishEvent, publishToPaymentService, publishToInventoryService } from '../config/rabbitmq';
 import { OrderStatus } from './orderService';
 
@@ -25,13 +24,6 @@ export enum SagaStatus {
   FAILED = 'failed',
   COMPENSATING = 'compensating',
   COMPENSATED = 'compensated',
-}
-
-interface SagaStepResult {
-  step: SagaStep;
-  status: 'success' | 'failed';
-  data?: any;
-  error?: string;
 }
 
 interface PaymentCompletedEvent {
@@ -60,7 +52,7 @@ class SagaOrchestrator {
   }
 
   // Start a new saga for order processing
-  async startOrderSaga(orderId: string, channel: connect.Channel) {
+  async startOrderSaga(orderId: string, channel: amqp.Channel) {
     // Create initial saga state
     const sagaState = await prisma.orderSagaState.create({
       data: {
@@ -99,7 +91,7 @@ class SagaOrchestrator {
   private async executeReserveInventory(
     sagaState: any,
     order: any,
-    channel: connect.Channel
+    channel: amqp.Channel
   ) {
     try {
       await this.updateSagaStep(sagaState.id, SagaStep.RESERVE_INVENTORY);
@@ -119,7 +111,7 @@ class SagaOrchestrator {
         step: SagaStep.RELEASE_INVENTORY,
         data: { orderId: order.id, items: order.orderItems },
       });
-    } catch (error) {
+    } catch (error: any) {
       await this.handleError(sagaState.id, error, SagaStep.RESERVE_INVENTORY, channel);
     }
   }
@@ -185,7 +177,7 @@ class SagaOrchestrator {
         step: SagaStep.REFUND_PAYMENT,
         data: { orderId: order.id, amount: order.finalAmount },
       });
-    } catch (error) {
+    } catch (error: any) {
       await this.handleError(sagaState.id, error, SagaStep.PROCESS_PAYMENT, channel);
     }
   }
@@ -271,7 +263,7 @@ class SagaOrchestrator {
 
       // Move to complete
       await this.completeSaga(sagaState.id, orderId, channel);
-    } catch (error) {
+    } catch (error: any) {
       await this.handleError(sagaState.id, error, SagaStep.CONFIRM_ORDER, channel);
     }
   }
@@ -293,7 +285,7 @@ class SagaOrchestrator {
   }
 
   // Compensation logic
-  private async compensate(sagaState: any, error: string, channel: connect.Channel) {
+  private async compensate(sagaState: any, error: string, channel: amqp.Channel) {
     await this.updateSagaStatus(sagaState.id, SagaStatus.COMPENSATING);
 
     // Update order status to cancelled
@@ -306,7 +298,7 @@ class SagaOrchestrator {
     });
 
     // Execute compensation actions in reverse order
-    const compensationActions = sagaState.compensation as any[] || [];
+    const compensationActions = (sagaState.compensation as any[]) || [];
     const reversedActions = [...compensationActions].reverse();
 
     for (const action of reversedActions) {
@@ -347,7 +339,6 @@ class SagaOrchestrator {
       where: { id: sagaStateId },
       data: {
         currentStep: step,
-        updatedAt: new Date(),
       },
     });
   }
@@ -357,7 +348,6 @@ class SagaOrchestrator {
       where: { id: sagaStateId },
       data: {
         status,
-        updatedAt: new Date(),
         ...(status === SagaStatus.COMPLETED || status === SagaStatus.COMPENSATED
           ? { completedAt: new Date() }
           : {}),
@@ -381,10 +371,7 @@ class SagaOrchestrator {
 
     await prisma.orderSagaState.update({
       where: { id: sagaStateId },
-      data: {
-        steps,
-        updatedAt: new Date(),
-      },
+      data: { steps },
     });
   }
 
@@ -395,7 +382,7 @@ class SagaOrchestrator {
 
     if (!sagaState) return;
 
-    const compensation = sagaState.compensation as any[] || [];
+    const compensation = (sagaState.compensation as any[]) || [];
     compensation.push(action);
 
     await prisma.orderSagaState.update({
@@ -408,7 +395,7 @@ class SagaOrchestrator {
     sagaStateId: string,
     error: any,
     step: SagaStep,
-    channel: connect.Channel
+    channel: amqp.Channel
   ) {
     const sagaState = await prisma.orderSagaState.findUnique({
       where: { id: sagaStateId },
@@ -417,7 +404,7 @@ class SagaOrchestrator {
     if (!sagaState) return;
 
     // Record error
-    await prisma.orderSagaState.update({
+    const updatedSagaState = await prisma.orderSagaState.update({
       where: { id: sagaStateId },
       data: {
         errorMessage: error.message || String(error),
@@ -426,17 +413,16 @@ class SagaOrchestrator {
     });
 
     // Check if should retry
-    if (sagaState.retryCount < this.retryAttempts) {
-      console.log(`Retrying step ${step} (attempt ${sagaState.retryCount + 1}/${this.retryAttempts})`);
-      // Will retry after delay
+    if (updatedSagaState.retryCount < this.retryAttempts) {
+      console.log(`Retrying step ${step} (attempt ${updatedSagaState.retryCount}/${this.retryAttempts})`);
       setTimeout(() => {
         this.retryStep(sagaStateId, step, channel);
       }, this.retryDelay);
     } else {
       // Max retries exceeded, start compensation
       await this.compensate(
-        { ...sagaState, orderId: sagaState.orderId },
-        error.message,
+        { ...updatedSagaState, orderId: updatedSagaState.orderId },
+        error.message || String(error),
         channel
       );
     }
@@ -445,7 +431,7 @@ class SagaOrchestrator {
   private async retryStep(
     sagaStateId: string,
     step: SagaStep,
-    channel: connect.Channel
+    channel: amqp.Channel
   ) {
     const sagaState = await prisma.orderSagaState.findUnique({
       where: { id: sagaStateId },
@@ -479,7 +465,6 @@ class SagaOrchestrator {
       data: {
         status: SagaStatus.FAILED,
         errorMessage: error,
-        updatedAt: new Date(),
       },
     });
   }
@@ -487,7 +472,7 @@ class SagaOrchestrator {
   private async completeSaga(
     sagaStateId: string,
     orderId: string,
-    channel: connect.Channel
+    channel: amqp.Channel
   ) {
     await this.updateSagaStep(sagaStateId, SagaStep.COMPLETE);
     await this.updateSagaStatus(sagaStateId, SagaStatus.COMPLETED);
@@ -507,14 +492,14 @@ class SagaOrchestrator {
     if (!sagaState) return;
 
     const steps = sagaState.steps as any;
-    const compensation = sagaState.compensation as any[];
+    const compensation = (sagaState.compensation as any[]) || [];
 
     // Check if all compensation steps are complete
     const completedCompensations = steps.completed.filter((s: any) =>
       [SagaStep.RELEASE_INVENTORY, SagaStep.REFUND_PAYMENT].includes(s.step)
     );
 
-    if (completedCompensations.length === compensation.length) {
+    if (completedCompensations.length >= compensation.length) {
       await this.updateSagaStatus(sagaStateId, SagaStatus.COMPENSATED);
     }
   }

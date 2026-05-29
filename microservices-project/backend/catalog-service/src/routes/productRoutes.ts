@@ -2,8 +2,7 @@ import { Router } from 'express';
 import productController from '../controllers/productController';
 import { authMiddleware, roleMiddleware } from '../middleware/auth';
 import { validateDto } from '../middleware/validateDto';
-import {
-  CreateProductQueryDto } from '../dtos/productQuery.dto';
+import { productQueryDto } from '../dtos/productQuery.dto';
 
 const router = Router();
 
