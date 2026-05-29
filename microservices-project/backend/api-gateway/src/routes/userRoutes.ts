@@ -1,7 +1,8 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import axios from 'axios';
 import { StatusCodes } from 'http-status-codes';
-import { ApiError, AuthRequest } from '../middleware';
+import { ApiError } from '../middleware/errorHandler';
+import { AuthRequest } from '../middleware/auth';
 
 const router = Router();
 const USER_SERVICE_URL = process.env.USER_SERVICE_URL || 'http://localhost:3001';

@@ -5,11 +5,11 @@ import morgan from 'morgan';
 import compression from 'compression';
 import hpp from 'hpp';
 import dotenv from 'dotenv';
-import { createProxyMiddleware } from 'express-http-proxy';
+import proxy from 'express-http-proxy';
 import rateLimit from 'express-rate-limit';
 import RedisStore from 'rate-limit-redis';
 import Redis from 'ioredis';
-import { expressPromBundle } from '../node_modules/express-prom-bundle';
+import promBundle from 'express-prom-bundle';
 
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { authMiddleware } from './middleware/auth';
@@ -29,7 +29,7 @@ const redisClient = new Redis({
 });
 
 // Prometheus metrics
-const metricsMiddleware = expressPromBundle({
+const metricsMiddleware = promBundle({
   includeMethod: true,
   includePath: true,
   promClient: {
@@ -64,7 +64,8 @@ const limiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   store: new RedisStore({
-    sendCommand: (...args: string[]) => redisClient.call(...args),
+    sendCommand: (command: string, ...args: string[]) =>
+      redisClient.call(command, ...args) as any,
   }),
 });
 
@@ -85,7 +86,7 @@ app.use('/api/auth', routes.authRoutes);
 app.use('/api/users', authMiddleware, routes.userRoutes);
 
 // Service proxies
-const serviceProxies = {
+const serviceProxies: Record<string, string> = {
   '/api/users': process.env.USER_SERVICE_URL || 'http://localhost:3001',
   '/api/catalog': process.env.CATALOG_SERVICE_URL || 'http://localhost:3002',
   '/api/inventory': process.env.INVENTORY_SERVICE_URL || 'http://localhost:3003',
@@ -94,18 +95,11 @@ const serviceProxies = {
 };
 
 Object.entries(serviceProxies).forEach(([path, target]) => {
-  app.use(path, authMiddleware, createProxyMiddleware({
-    target,
-    changeOrigin: true,
-    pathRewrite: { [`^${path}`]: '/api' },
-    onProxyReq: (proxyReq, req, res) => {
-      // Forward user information to downstream services
-      if ((req as any).user) {
-        proxyReq.setHeader('X-User-ID', (req as any).user.id);
-        proxyReq.setHeader('X-User-Role', (req as any).user.role);
-      }
+  app.use(path, authMiddleware, proxy(target, {
+    proxyReqPathResolver: (req) => {
+      return `/api${req.url}`;
     },
-    onError: (err, req, res) => {
+    proxyErrorHandler: (err, res, next) => {
       console.error('Proxy error:', err);
       res.status(500).json({
         status: 'error',

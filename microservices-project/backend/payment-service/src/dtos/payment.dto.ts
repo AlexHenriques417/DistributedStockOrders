@@ -72,14 +72,14 @@ export class CreditCardDetailsDto {
 
 export class ProcessCreditCardPaymentDto extends ProcessPaymentDto {
   @IsEnum(PaymentMethod)
-  paymentMethod!: PaymentMethod.CREDIT_CARD;
+  declare paymentMethod: PaymentMethod.CREDIT_CARD;
 
   creditCardDetails!: CreditCardDetailsDto;
 }
 
 export class ProcessPixPaymentDto extends ProcessPaymentDto {
   @IsEnum(PaymentMethod)
-  paymentMethod!: PaymentMethod.PIX;
+  declare paymentMethod: PaymentMethod.PIX;
 
   @IsOptional()
   @IsString()
@@ -88,7 +88,7 @@ export class ProcessPixPaymentDto extends ProcessPaymentDto {
 
 export class ProcessBoletoPaymentDto extends ProcessPaymentDto {
   @IsEnum(PaymentMethod)
-  paymentMethod!: PaymentMethod.BOLETO;
+  declare paymentMethod: PaymentMethod.BOLETO;
 
   @IsOptional()
   @Matches(/^\d{3}\.\d{3}\.\d{3}-\d{2}$|^\d{11}$/)
