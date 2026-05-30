@@ -1,14 +1,20 @@
 import connect from 'amqplib';
 
+const QUEUE_ARGS = {
+  durable: true,
+  arguments: {
+    'x-dead-letter-exchange': 'dlx',
+    'x-message-ttl': 604800000
+  }
+};
+
 export const setupRabbitMQ = async (channel: connect.Channel) => {
   const exchange = process.env.RABBITMQ_EXCHANGE || 'catalog.events';
 
   await channel.assertExchange(exchange, 'topic', { durable: true });
 
-  // Assert queues
-  await channel.assertQueue('catalog.service.queue', { durable: true });
+  await channel.assertQueue('catalog.service.queue', QUEUE_ARGS);
 
-  // Bindings
   await channel.bindQueue('catalog.service.queue', exchange, 'product.*');
   await channel.bindQueue('catalog.service.queue', exchange, 'category.*');
 

@@ -1,25 +1,27 @@
 import connect from 'amqplib';
 
+const QUEUE_ARGS = {
+  durable: true,
+  arguments: {
+    'x-dead-letter-exchange': 'dlx',
+    'x-message-ttl': 604800000
+  }
+};
+
 export const setupRabbitMQ = async (channel: connect.Channel) => {
   const exchange = process.env.RABBITMQ_EXCHANGE || 'inventory.events';
   const catalogExchange = process.env.RABBITMQ_CATALOG_EXCHANGE || 'catalog.events';
 
-  // Assert inventory events exchange
   await channel.assertExchange(exchange, 'topic', { durable: true });
-
-  // Assert catalog events exchange for consuming
   await channel.assertExchange(catalogExchange, 'topic', { durable: true });
 
-  // Assert queues
-  await channel.assertQueue('inventory.service.queue', { durable: true });
-  await channel.assertQueue('inventory.events.queue', { durable: true });
+  await channel.assertQueue('inventory.service.queue', QUEUE_ARGS);
+  await channel.assertQueue('inventory.events.queue', QUEUE_ARGS);
 
-  // Bind inventory service queue to listen for catalog events
   await channel.bindQueue('inventory.service.queue', catalogExchange, 'catalog.product.created');
   await channel.bindQueue('inventory.service.queue', catalogExchange, 'catalog.product.updated');
   await channel.bindQueue('inventory.service.queue', catalogExchange, 'catalog.product.deleted');
 
-  // Bind inventory events queue for internal events
   await channel.bindQueue('inventory.events.queue', exchange, 'stock.*');
 
   console.log('RabbitMQ setup completed');
@@ -52,11 +54,7 @@ export const consumeCatalogEvents = async (
         const content = JSON.parse(msg.content.toString());
         const routingKey = msg.fields.routingKey;
 
-        await callback({
-          event: routingKey,
-          data: content,
-        });
-
+        await callback({ event: routingKey, data: content });
         channel.ack(msg);
       } catch (error) {
         console.error('Error processing catalog event:', error);
@@ -73,8 +71,8 @@ export const consumeStockEvents = async (
   const queue = 'inventory.events.queue';
   const exchange = process.env.RABBITMQ_EXCHANGE || 'inventory.events';
 
-  // Ensure the queue exists
-  await channel.assertQueue(queue, { durable: true });
+  // Usando QUEUE_ARGS aqui também pois redeclara a fila
+  await channel.assertQueue(queue, QUEUE_ARGS);
   await channel.bindQueue(queue, exchange, 'stock.*');
 
   await channel.consume(queue, async (msg) => {
@@ -83,11 +81,7 @@ export const consumeStockEvents = async (
         const content = JSON.parse(msg.content.toString());
         const routingKey = msg.fields.routingKey;
 
-        await callback({
-          event: routingKey,
-          data: content,
-        });
-
+        await callback({ event: routingKey, data: content });
         channel.ack(msg);
       } catch (error) {
         console.error('Error processing stock event:', error);
