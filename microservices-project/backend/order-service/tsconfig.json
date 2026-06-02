@@ -23,7 +23,7 @@
 
     "resolveJsonModule": true,
 
-    "types": ["node"],
+    "types": ["node", "jest"],
 
     "sourceMap": true,
 
@@ -34,7 +34,9 @@
     "noUnusedParameters": false,
 
     "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+
+    "isolatedModules": true
   },
 
   "include": [

@@ -1,3 +1,4 @@
+import { setupSwagger } from './config/swagger';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -57,6 +58,8 @@ app.use(compression());
 app.use(morgan('combined'));
 app.use(requestLogger);
 
+setupSwagger(app);
+
 // Rate limiting
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'),
@@ -87,7 +90,7 @@ app.use('/api/users', authMiddleware, routes.userRoutes);
 
 // Service proxies
 const serviceProxies: Record<string, string> = {
-  '/api/users': process.env.USER_SERVICE_URL || 'http://localhost:3001',
+  '/api/users': process.env.USER_SERVICE_URL || 'http://localhost:3006',
   '/api/catalog': process.env.CATALOG_SERVICE_URL || 'http://localhost:3002',
   '/api/inventory': process.env.INVENTORY_SERVICE_URL || 'http://localhost:3003',
   '/api/orders': process.env.ORDER_SERVICE_URL || 'http://localhost:3004',

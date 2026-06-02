@@ -9,14 +9,21 @@ import amqp, { Channel } from 'amqplib';
 
 import authRoutes from './routes/authRoutes';
 import userRoutes from './routes/userRoutes';
-import { errorHandler, notFoundHandler } from './middleware/errorHandler';
+
+import {
+  errorHandler,
+  notFoundHandler
+} from './middleware/errorHandler';
+
 import { requestLogger } from './middleware/requestLogger';
+
 import { setupRabbitMQ } from './config/rabbitmq';
 
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+
+const PORT = process.env.PORT || 3006;
 
 export const prisma = new PrismaClient();
 
@@ -25,39 +32,53 @@ export const prisma = new PrismaClient();
 REDIS
 =====================================================
 */
-export const redis = new Redis(
-  process.env.REDIS_URL || 'redis://:redis_pass_123@localhost:6379'
-);
 
-redis.on('connect', () => {
-  console.log('Connected to Redis');
-});
+export const redis =
+  process.env.NODE_ENV === 'test'
+    ? ({
+        on: () => {},
+        quit: async () => {},
+        status: 'mock'
+      } as any)
+    : new Redis(
+        process.env.REDIS_URL ||
+          'redis://:redis_pass_123@localhost:6379'
+      );
 
-redis.on('error', (err) => {
-  console.error('Redis Error:', err);
-});
+if (process.env.NODE_ENV !== 'test') {
+  redis.on('connect', () => {
+    console.log('Connected to Redis');
+  });
+
+  redis.on('error', (err) => {
+    console.error('Redis Error:', err);
+  });
+}
 
 /*
 =====================================================
 RABBITMQ
 =====================================================
 */
+
 let channel: Channel;
 
-const startServer = async () => {
+export const startServer = async () => {
   try {
-    // RabbitMQ connection
-    const connection = await amqp.connect(
-      process.env.RABBITMQ_URL || 'amqp://admin:rabbitmq_pass_123@localhost:5672'
-    );
+    if (process.env.NODE_ENV !== 'test') {
+      const connection = await amqp.connect(
+        process.env.RABBITMQ_URL ||
+          'amqp://admin:rabbitmq_pass_123@localhost:5672'
+      );
 
-    channel = await connection.createChannel();
+      channel = await connection.createChannel();
 
-    await setupRabbitMQ(channel);
+      await setupRabbitMQ(channel);
 
-    console.log('Connected to RabbitMQ');
+      console.log('Connected to RabbitMQ');
 
-    app.set('rabbitmqChannel', channel);
+      app.set('rabbitmqChannel', channel);
+    }
 
     /*
     =====================================================
@@ -69,15 +90,26 @@ const startServer = async () => {
 
     app.use(
       cors({
-        origin: process.env.CORS_ORIGIN || '*',
-        credentials: true,
+        origin:
+          process.env.CORS_ORIGIN || '*',
+        credentials: true
       })
     );
 
-    app.use(express.json({ limit: '10mb' }));
-    app.use(express.urlencoded({ extended: true }));
+    app.use(
+      express.json({
+        limit: '10mb'
+      })
+    );
+
+    app.use(
+      express.urlencoded({
+        extended: true
+      })
+    );
 
     app.use(morgan('combined'));
+
     app.use(requestLogger);
 
     /*
@@ -89,21 +121,44 @@ const startServer = async () => {
     app.get('/health', (_req, res) => {
       res.status(200).json({
         status: 'healthy',
-        timestamp: new Date().toISOString(),
+
+        timestamp:
+          new Date().toISOString(),
+
         uptime: process.uptime(),
+
         service: 'user-service',
+
         database: 'connected',
+
         redis: redis.status,
-        rabbitmq: channel ? 'connected' : 'disconnected',
+
+        rabbitmq:
+          process.env.NODE_ENV ===
+          'test'
+            ? 'mock'
+            : channel
+            ? 'connected'
+            : 'disconnected'
       });
     });
 
-    app.get('/metrics', async (_req, res) => {
-      res.set('Content-Type', 'text/plain');
-      res.send('# Metrics available through prom-client');
-    });
+    app.get(
+      '/metrics',
+      async (_req, res) => {
+        res.set(
+          'Content-Type',
+          'text/plain'
+        );
+
+        res.send(
+          '# Metrics available through prom-client'
+        );
+      }
+    );
 
     app.use('/api/auth', authRoutes);
+
     app.use('/api/users', userRoutes);
 
     /*
@@ -113,6 +168,7 @@ const startServer = async () => {
     */
 
     app.use(notFoundHandler);
+
     app.use(errorHandler);
 
     /*
@@ -121,12 +177,25 @@ const startServer = async () => {
     =====================================================
     */
 
-    app.listen(PORT, () => {
-      console.log(`User Service running on port ${PORT}`);
-      console.log(`Environment: ${process.env.NODE_ENV}`);
-    });
+    if (
+      process.env.NODE_ENV !== 'test'
+    ) {
+      app.listen(PORT, () => {
+        console.log(
+          `User Service running on port ${PORT}`
+        );
+
+        console.log(
+          `Environment: ${process.env.NODE_ENV}`
+        );
+      });
+    }
   } catch (error) {
-    console.error('Failed to start server:', error);
+    console.error(
+      'Failed to start server:',
+      error
+    );
+
     process.exit(1);
   }
 };
@@ -138,25 +207,31 @@ GRACEFUL SHUTDOWN
 */
 
 process.on('SIGTERM', async () => {
-  console.log('SIGTERM received');
-
   await prisma.$disconnect();
 
-  redis.quit();
+  if (
+    process.env.NODE_ENV !== 'test'
+  ) {
+    await redis.quit();
+  }
 
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
-  console.log('SIGINT received');
-
   await prisma.$disconnect();
 
-  redis.quit();
+  if (
+    process.env.NODE_ENV !== 'test'
+  ) {
+    await redis.quit();
+  }
 
   process.exit(0);
 });
 
-startServer();
+if (process.env.NODE_ENV !== 'test') {
+  startServer();
+}
 
 export default app;
