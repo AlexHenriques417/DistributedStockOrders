@@ -2,30 +2,31 @@ import connect from 'amqplib';
 import { prisma } from '../server';
 import { sagaOrchestrator } from '../services/sagaOrchestrator';
 
+const QUEUE_ARGS = {
+  durable: true,
+  arguments: {
+    'x-dead-letter-exchange': 'dlx',
+    'x-message-ttl': 604800000
+  }
+};
+
 export const setupRabbitMQ = async (channel: connect.Channel) => {
   const exchange = process.env.RABBITMQ_EXCHANGE || 'order.events';
 
-  // Assert main exchange for order events
   await channel.assertExchange(exchange, 'topic', { durable: true });
-
-  // Assert exchange for receiving events from other services
   await channel.assertExchange('payment.events', 'topic', { durable: true });
   await channel.assertExchange('inventory.events', 'topic', { durable: true });
 
-  // Assert queues for order service
-  await channel.assertQueue('order.service.queue', { durable: true });
-  await channel.assertQueue('order.payment.response.queue', { durable: true });
-  await channel.assertQueue('order.inventory.response.queue', { durable: true });
+  await channel.assertQueue('order.service.queue', QUEUE_ARGS);
+  await channel.assertQueue('order.payment.response.queue', QUEUE_ARGS);
+  await channel.assertQueue('order.inventory.response.queue', QUEUE_ARGS);
 
-  // Bindings for order events (outgoing)
   await channel.bindQueue('order.service.queue', exchange, 'order.*');
 
-  // Bindings for payment events (incoming)
   await channel.bindQueue('order.payment.response.queue', 'payment.events', 'payment.completed');
   await channel.bindQueue('order.payment.response.queue', 'payment.events', 'payment.failed');
   await channel.bindQueue('order.payment.response.queue', 'payment.events', 'payment.refunded');
 
-  // Bindings for inventory events (incoming)
   await channel.bindQueue('order.inventory.response.queue', 'inventory.events', 'inventory.reserved');
   await channel.bindQueue('order.inventory.response.queue', 'inventory.events', 'inventory.reservation_failed');
   await channel.bindQueue('order.inventory.response.queue', 'inventory.events', 'inventory.released');
@@ -49,7 +50,6 @@ export const publishEvent = async (
 };
 
 export const consumeEvents = async (channel: connect.Channel) => {
-  // Consume payment response events
   await channel.consume('order.payment.response.queue', async (msg) => {
     if (!msg) return;
 
@@ -70,11 +70,10 @@ export const consumeEvents = async (channel: connect.Channel) => {
       channel.ack(msg);
     } catch (error) {
       console.error('Error processing payment event:', error);
-      channel.nack(msg, false, true); // Requeue on error
+      channel.nack(msg, false, true);
     }
   });
 
-  // Consume inventory response events
   await channel.consume('order.inventory.response.queue', async (msg) => {
     if (!msg) return;
 
@@ -95,14 +94,13 @@ export const consumeEvents = async (channel: connect.Channel) => {
       channel.ack(msg);
     } catch (error) {
       console.error('Error processing inventory event:', error);
-      channel.nack(msg, false, true); // Requeue on error
+      channel.nack(msg, false, true);
     }
   });
 
   console.log('Started consuming events from payment and inventory services');
 };
 
-// Helper to publish to other exchanges
 export const publishToPaymentService = async (
   channel: connect.Channel,
   routingKey: string,

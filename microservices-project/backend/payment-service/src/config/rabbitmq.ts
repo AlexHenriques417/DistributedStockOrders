@@ -4,20 +4,27 @@ export const setupRabbitMQ = async (channel: connect.Channel) => {
   const exchange = process.env.RABBITMQ_EXCHANGE || 'payment.events';
   const orderExchange = process.env.ORDER_EVENTS_EXCHANGE || 'order.events';
 
-  // Assert payment events exchange
   await channel.assertExchange(exchange, 'topic', { durable: true });
-
-  // Assert order events exchange (to consume from)
   await channel.assertExchange(orderExchange, 'topic', { durable: true });
 
-  // Assert queues
-  await channel.assertQueue('payment.service.queue', { durable: true });
-  await channel.assertQueue('payment.order.events.queue', { durable: true });
+  // Assert queues com argumentos corretos
+  await channel.assertQueue('payment.service.queue', {
+    durable: true,
+    arguments: {
+      'x-dead-letter-exchange': 'dlx',
+      'x-message-ttl': 604800000
+    }
+  });
 
-  // Bindings for outgoing events (payment.service.queue binds to payment.events)
+  await channel.assertQueue('payment.order.events.queue', {
+    durable: true,
+    arguments: {
+      'x-dead-letter-exchange': 'dlx',
+      'x-message-ttl': 604800000
+    }
+  });
+
   await channel.bindQueue('payment.service.queue', exchange, 'payment.*');
-
-  // Bindings for incoming events (consume order events)
   await channel.bindQueue('payment.order.events.queue', orderExchange, 'order.created');
   await channel.bindQueue('payment.order.events.queue', orderExchange, 'order.confirmed');
 

@@ -5,7 +5,7 @@ import { ApiError } from '../middleware/errorHandler';
 import { AuthRequest } from '../middleware/auth';
 
 const router = Router();
-const USER_SERVICE_URL = process.env.USER_SERVICE_URL || 'http://localhost:3001';
+const USER_SERVICE_URL = process.env.USER_SERVICE_URL || 'http://localhost:3006';
 
 router.get('/profile', async (req: Request, res: Response, next: NextFunction) => {
   try {

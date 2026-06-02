@@ -5,8 +5,14 @@ export const setupRabbitMQ = async (channel: connect.Channel) => {
 
   await channel.assertExchange(exchange, 'topic', { durable: true });
 
-  // Assert queues
-  await channel.assertQueue('user.service.queue', { durable: true });
+  // Assert queues com os mesmos argumentos do definitions.json
+  await channel.assertQueue('user.service.queue', {
+    durable: true,
+    arguments: {
+      'x-dead-letter-exchange': 'dlx',
+      'x-message-ttl': 604800000
+    }
+  });
 
   // Bindings
   await channel.bindQueue('user.service.queue', exchange, 'user.*');

@@ -41,7 +41,7 @@ interface ServiceData {
 
 const servicesConfig = [
   { name: 'API Gateway', port: 3000, color: 'bg-blue-500' },
-  { name: 'User Service', port: 3001, color: 'bg-green-500' },
+  { name: 'User Service', port: 3006, color: 'bg-green-500' },
   { name: 'Catalog Service', port: 3002, color: 'bg-purple-500' },
   { name: 'Inventory Service', port: 3003, color: 'bg-indigo-500' },
   { name: 'Order Service', port: 3004, color: 'bg-orange-500' },
