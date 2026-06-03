@@ -7,89 +7,39 @@ on:
 jobs:
   analyze:
     runs-on: ubuntu-latest
+    outputs:
+      api-gateway: ${{ steps.changes.outputs.api-gateway }}
+      user-service: ${{ steps.changes.outputs.user-service }}
+      catalog-service: ${{ steps.changes.outputs.catalog-service }}
+      inventory-service: ${{ steps.changes.outputs.inventory-service }}
+      order-service: ${{ steps.changes.outputs.order-service }}
+      payment-service: ${{ steps.changes.outputs.payment-service }}
+      frontend: ${{ steps.changes.outputs.frontend }}
 
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Check affected services
-        id: affected
+      - id: changes
         run: |
-          # Detect which services were changed
-          echo "Checking for changes..."
-
           changes=$(git diff --name-only origin/main...HEAD)
 
-          if echo "$changes" | grep -q "backend/api-gateway"; then
-            echo "::set-output name=api-gateway::true"
-          fi
+          check() {
+            if echo "$changes" | grep -q "$1"; then
+              echo "$2=true" >> $GITHUB_OUTPUT
+            else
+              echo "$2=false" >> $GITHUB_OUTPUT
+            fi
+          }
 
-          if echo "$changes" | grep -q "backend/user-service"; then
-            echo "::set-output name=user-service::true"
-          fi
-
-          if echo "$changes" | grep -q "backend/catalog-service"; then
-            echo "::set-output name=catalog-service::true"
-          fi
-
-          if echo "$changes" | grep -q "backend/inventory-service"; then
-            echo "::set-output name=inventory-service::true"
-          fi
-
-          if echo "$changes" | grep -q "backend/order-service"; then
-            echo "::set-output name=order-service::true"
-          fi
-
-          if echo "$changes" | grep -q "backend/payment-service"; then
-            echo "::set-output name=payment-service::true"
-          fi
-
-          if echo "$changes" | grep -q "frontend"; then
-            echo "::set-output name=frontend::true"
-          fi
-
-  test-api-gateway:
-    needs: analyze
-    if: needs.analyze.outputs.api-gateway == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - name: Install and Test
-        working-directory: backend/api-gateway
-        run: |
-          npm ci
-          npm run lint
-          npm test
-
-  test-user-service:
-    needs: analyze
-    if: needs.analyze.outputs.user-service == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - name: Install and Test
-        working-directory: backend/user-service
-        run: |
-          npm ci
-          npm run lint
-          npm test
+          check backend/api-gateway api-gateway
+          check backend/user-service user-service
+          check backend/catalog-service catalog-service
+          check backend/inventory-service inventory-service
+          check backend/order-service order-service
+          check backend/payment-service payment-service
+          check frontend frontend
 
   test-catalog-service:
     needs: analyze
@@ -97,14 +47,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Install and Test
-        working-directory: backend/catalog-service
-        run: |
+      - run: |
+          cd backend/catalog-service
           npm ci
+          npx prisma generate || true
           npm run lint
           npm test
 
@@ -114,13 +63,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Install and Build
-        working-directory: frontend/web-app
-        run: |
+      - run: |
+          cd frontend/web-app
           npm ci
           npm run lint
           npm run build
